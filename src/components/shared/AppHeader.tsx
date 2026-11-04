@@ -11,7 +11,11 @@ import {
   Layers,
   ChevronDown,
   FileJson,
+  FileText,
   Loader2,
+  SlidersHorizontal,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -27,9 +31,14 @@ import type { DesignLayout, DesignElement } from '@/types/blueprint';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
+import { jsPDF } from 'jspdf';
 
 interface AppHeaderProps {
   currentDesign?: DesignLayout | null;
+  isRightPanelCollapsed?: boolean;
+  onToggleRightPanel?: () => void;
+  isLeftPanelCollapsed?: boolean;
+  onToggleLeftPanel?: () => void;
 }
 
 async function renderSlideToDataUrl(elements: DesignElement[], bgColor: string): Promise<string> {
@@ -119,7 +128,13 @@ function triggerDownload(dataUrl: string, filename: string) {
   document.body.removeChild(a);
 }
 
-export function AppHeader({ currentDesign }: AppHeaderProps) {
+export function AppHeader({
+  currentDesign,
+  isRightPanelCollapsed,
+  onToggleRightPanel,
+  isLeftPanelCollapsed,
+  onToggleLeftPanel,
+}: AppHeaderProps) {
   const { toast } = useToast();
   const { user, logout, loading, isDemoMode } = useAuth();
   const router = useRouter();
@@ -197,7 +212,7 @@ export function AppHeader({ currentDesign }: AppHeaderProps) {
     setIsExporting(true);
     const pages = currentDesign.pages;
     toast({
-      title: 'Exporting Carousel...',
+      title: 'Exporting Carousel PNGs...',
       description: `Rendering all ${pages.length} slides sequentially...`,
     });
 
@@ -209,7 +224,6 @@ export function AppHeader({ currentDesign }: AppHeaderProps) {
           page.canvasBackgroundColor || currentDesign.canvasBackgroundColor || '#FFFFFF'
         );
         triggerDownload(dataUrl, `${baseSlug}_slide_${i + 1}.png`);
-        // Slight pause between downloads so browser doesn't block parallel popup downloads
         if (i < pages.length - 1) {
           await new Promise((r) => setTimeout(r, 350));
         }
@@ -217,13 +231,99 @@ export function AppHeader({ currentDesign }: AppHeaderProps) {
 
       toast({
         title: 'Carousel Export Complete!',
-        description: `Successfully downloaded all ${pages.length} slides.`,
+        description: `Successfully downloaded all ${pages.length} slides as PNG images.`,
       });
     } catch (err) {
       console.error('Carousel export error:', err);
       toast({
         title: 'Export Failed',
         description: 'Could not export all slides.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // PDF Export Handlers
+  const handleExportSlidePDF = async () => {
+    if (!currentDesign) return;
+    setIsExporting(true);
+    toast({
+      title: `Compiling Slide ${activeSlideNum} PDF...`,
+      description: 'Rendering high-resolution document...',
+    });
+
+    try {
+      const dataUrl = await renderSlideToDataUrl(
+        currentDesign.elements || [],
+        currentDesign.canvasBackgroundColor || '#FFFFFF'
+      );
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'px',
+        format: [1000, 1000],
+      });
+      pdf.addImage(dataUrl, 'PNG', 0, 0, 1000, 1000);
+      pdf.save(`${baseSlug}_slide_${activeSlideNum}.pdf`);
+      toast({
+        title: 'PDF Export Complete!',
+        description: `Slide ${activeSlideNum} saved as PDF document.`,
+      });
+    } catch (err) {
+      console.error('PDF export error:', err);
+      toast({
+        title: 'PDF Export Failed',
+        description: 'Could not export slide to PDF.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleExportAllSlidesPDF = async () => {
+    if (!currentDesign || !currentDesign.pages || currentDesign.pages.length === 0) {
+      handleExportSlidePDF();
+      return;
+    }
+
+    setIsExporting(true);
+    const pages = currentDesign.pages;
+    toast({
+      title: 'Compiling Multi-Page PDF...',
+      description: `Merging all ${pages.length} carousel slides into PDF...`,
+    });
+
+    try {
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'px',
+        format: [1000, 1000],
+      });
+
+      for (let i = 0; i < pages.length; i++) {
+        if (i > 0) {
+          pdf.addPage([1000, 1000], 'portrait');
+        }
+        const page = pages[i];
+        const dataUrl = await renderSlideToDataUrl(
+          page.elements || [],
+          page.canvasBackgroundColor || currentDesign.canvasBackgroundColor || '#FFFFFF'
+        );
+        pdf.addImage(dataUrl, 'PNG', 0, 0, 1000, 1000);
+      }
+
+      pdf.save(`${baseSlug}_presentation.pdf`);
+      toast({
+        title: 'Multi-Page PDF Ready!',
+        description: `Successfully compiled ${pages.length} slides into a single PDF document.`,
+      });
+    } catch (err) {
+      console.error('Multi-page PDF export error:', err);
+      toast({
+        title: 'PDF Export Failed',
+        description: 'Could not generate multi-page PDF.',
         variant: 'destructive',
       });
     } finally {
@@ -273,7 +373,7 @@ export function AppHeader({ currentDesign }: AppHeaderProps) {
                     {isExporting ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     ) : (
-                      <ImageIcon className="h-3.5 w-3.5" />
+                      <Download className="h-3.5 w-3.5" />
                     )}
                     <span>Export</span>
                     {totalPages > 1 && (
@@ -284,18 +384,43 @@ export function AppHeader({ currentDesign }: AppHeaderProps) {
                     <ChevronDown className="h-3.5 w-3.5 opacity-70" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel className="text-xs">Export Options</DropdownMenuLabel>
+                <DropdownMenuContent align="end" className="w-64">
+                  <DropdownMenuLabel className="text-xs">Document & Image Export</DropdownMenuLabel>
                   <DropdownMenuSeparator />
+
+                  {/* PDF Export Section */}
+                  <DropdownMenuItem onClick={handleExportSlidePDF} className="text-xs cursor-pointer">
+                    <FileText className="mr-2 h-4 w-4 text-rose-500" />
+                    <div className="flex flex-col">
+                      <span className="font-medium">Export Current Slide (PDF)</span>
+                      <span className="text-[10px] text-muted-foreground">High-res print-ready PDF</span>
+                    </div>
+                  </DropdownMenuItem>
+
+                  {totalPages > 1 && (
+                    <DropdownMenuItem onClick={handleExportAllSlidesPDF} className="text-xs cursor-pointer">
+                      <FileText className="mr-2 h-4 w-4 text-rose-500 font-bold" />
+                      <div className="flex flex-col">
+                        <span className="font-medium text-rose-600 dark:text-rose-400">
+                          Export All {totalPages} Slides (Multi-Page PDF)
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">Single document for LinkedIn / Deck</span>
+                      </div>
+                    </DropdownMenuItem>
+                  )}
+
+                  <DropdownMenuSeparator />
+
+                  {/* PNG Image Export Section */}
                   <DropdownMenuItem onClick={handleExportActiveSlide} className="text-xs cursor-pointer">
-                    <ImageIcon className="mr-2 h-4 w-4 text-primary" />
-                    <span>Export Current Slide ({activeSlideNum})</span>
+                    <ImageIcon className="mr-2 h-4 w-4 text-blue-500" />
+                    <span>Export Current Slide (PNG)</span>
                   </DropdownMenuItem>
 
                   {totalPages > 1 && (
                     <DropdownMenuItem onClick={handleExportAllSlides} className="text-xs cursor-pointer font-medium">
-                      <Layers className="mr-2 h-4 w-4 text-primary" />
-                      <span>Export All {totalPages} Slides (PNG)</span>
+                      <Layers className="mr-2 h-4 w-4 text-blue-500" />
+                      <span>Export All {totalPages} Slides (PNGs)</span>
                     </DropdownMenuItem>
                   )}
 
@@ -316,6 +441,39 @@ export function AppHeader({ currentDesign }: AppHeaderProps) {
                 <Download className="h-3.5 w-3.5" />
                 Save JSON
               </Button>
+
+              {/* Panel Toggle Toolbar in AppHeader */}
+              <div className="flex items-center gap-1 border-l pl-2 ml-1">
+                {onToggleLeftPanel && (
+                  <Button
+                    variant={isLeftPanelCollapsed ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={onToggleLeftPanel}
+                    className="h-8 px-2 text-xs gap-1.5"
+                    title={isLeftPanelCollapsed ? 'Expand Toolbox Panel' : 'Collapse Toolbox Panel'}
+                  >
+                    {isLeftPanelCollapsed ? (
+                      <PanelLeftOpen className="h-3.5 w-3.5" />
+                    ) : (
+                      <PanelLeftClose className="h-3.5 w-3.5 text-muted-foreground" />
+                    )}
+                    <span className="hidden xl:inline">Tools</span>
+                  </Button>
+                )}
+
+                {onToggleRightPanel && (
+                  <Button
+                    variant={isRightPanelCollapsed ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={onToggleRightPanel}
+                    className="h-8 px-2.5 text-xs gap-1.5 shadow-xs"
+                    title={isRightPanelCollapsed ? 'Open Properties Inspector (or click the vertical sidebar button)' : 'Collapse Properties Inspector'}
+                  >
+                    <SlidersHorizontal className="h-3.5 w-3.5" />
+                    <span>{isRightPanelCollapsed ? 'Open Properties' : 'Properties'}</span>
+                  </Button>
+                )}
+              </div>
             </>
           )}
 

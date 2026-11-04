@@ -1,13 +1,16 @@
 'use client';
 
 import type { DesignLayout, DesignElement } from '@/types/blueprint';
-import { Type, Square, Image as ImageIcon, Layers, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
+import { Type, Square, Image as ImageIcon, Layers, Trash2, ArrowUp, ArrowDown, Folder } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface LayersPanelProps {
   currentDesign: DesignLayout | null;
   selectedElementId: string | null;
+  selectedElementIds?: string[];
   onSelectElement: (id: string | null) => void;
+  onSelectElements?: (ids: string[]) => void;
+  onToggleSelectElement?: (id: string) => void;
   onUpdateElement: (element: DesignElement) => void;
   onDeleteElement: (id: string) => void;
 }
@@ -15,7 +18,10 @@ interface LayersPanelProps {
 export function LayersPanel({
   currentDesign,
   selectedElementId,
+  selectedElementIds = [],
   onSelectElement,
+  onSelectElements,
+  onToggleSelectElement,
   onUpdateElement,
   onDeleteElement,
 }: LayersPanelProps) {
@@ -30,6 +36,14 @@ export function LayersPanel({
       </div>
     );
   }
+
+  // Effective multi-selection IDs list
+  const effectiveSelectedIds =
+    selectedElementIds.length > 0
+      ? selectedElementIds
+      : selectedElementId
+      ? [selectedElementId]
+      : [];
 
   // Sort by zIndex descending (top-most layer on top of list)
   const sortedElements = [...currentDesign.elements].sort(
@@ -70,6 +84,25 @@ export function LayersPanel({
     });
   };
 
+  const handleLayerClick = (e: React.MouseEvent, el: DesignElement) => {
+    if (e.shiftKey) {
+      onToggleSelectElement?.(el.id);
+    } else if (el.groupId) {
+      const groupMembers = currentDesign.elements.filter((e) => e.groupId === el.groupId).map((e) => e.id);
+      if (onSelectElements) {
+        onSelectElements(groupMembers);
+      } else {
+        onSelectElement(el.id);
+      }
+    } else {
+      if (onSelectElements) {
+        onSelectElements([el.id]);
+      } else {
+        onSelectElement(el.id);
+      }
+    }
+  };
+
   return (
     <div className="p-4 space-y-3 h-full flex flex-col">
       <div className="flex items-center justify-between pb-1 border-b">
@@ -81,11 +114,11 @@ export function LayersPanel({
 
       <div className="space-y-1.5 overflow-y-auto flex-1 min-h-0 pr-1">
         {sortedElements.map((el) => {
-          const isSelected = el.id === selectedElementId;
+          const isSelected = effectiveSelectedIds.includes(el.id);
           return (
             <div
               key={el.id}
-              onClick={() => onSelectElement(el.id)}
+              onClick={(e) => handleLayerClick(e, el)}
               className={`flex items-center justify-between p-2 rounded-lg border text-xs cursor-pointer transition-all ${
                 isSelected
                   ? 'bg-primary/10 border-primary font-medium text-foreground shadow-sm'
@@ -97,7 +130,15 @@ export function LayersPanel({
                   {getElementIcon(el.type)}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs text-foreground font-medium">{getElementLabel(el)}</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="truncate text-xs text-foreground font-medium">{getElementLabel(el)}</p>
+                    {el.groupId && (
+                      <span className="shrink-0 flex items-center gap-0.5 px-1 py-0.2 rounded text-[9px] bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 font-bold border border-blue-200 dark:border-blue-800">
+                        <Folder className="h-2.5 w-2.5" />
+                        GROUP
+                      </span>
+                    )}
+                  </div>
                   <p className="text-[10px] text-muted-foreground">
                     Z: {el.style?.zIndex ?? 1} • {Math.round(el.size.width)}×{Math.round(el.size.height)}
                   </p>

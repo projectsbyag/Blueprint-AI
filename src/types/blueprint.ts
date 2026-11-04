@@ -27,6 +27,7 @@ export interface DesignElement {
   content?: string;
   source?: string;
   style?: ElementStyle;
+  groupId?: string;
 }
 
 export interface DesignPage {

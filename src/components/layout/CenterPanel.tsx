@@ -7,10 +7,18 @@ import type { DesignLayout, DesignElement, DesignPage } from '@/types/blueprint'
 interface CenterPanelProps {
   currentDesign: DesignLayout | null;
   selectedElementId: string | null;
+  selectedElementIds?: string[];
   onSelectElement: (elementId: string | null) => void;
+  onSelectElements?: (elementIds: string[]) => void;
+  onToggleSelectElement?: (elementId: string) => void;
+  onGroupElements?: () => void;
+  onUngroupElements?: () => void;
   onUpdateElement?: (updatedElement: DesignElement) => void;
+  onBatchUpdateElements?: (updatedElements: DesignElement[]) => void;
   onDeleteElement?: (elementId: string) => void;
+  onDeleteElements?: (elementIds: string[]) => void;
   onDuplicateElement?: (elementId: string) => void;
+  onDuplicateElements?: (elementIds: string[]) => void;
   canUndo?: boolean;
   canRedo?: boolean;
   onUndo?: () => void;
@@ -29,10 +37,18 @@ interface CenterPanelProps {
 export function CenterPanel({
   currentDesign,
   selectedElementId,
+  selectedElementIds = [],
   onSelectElement,
+  onSelectElements,
+  onToggleSelectElement,
+  onGroupElements,
+  onUngroupElements,
   onUpdateElement,
+  onBatchUpdateElements,
   onDeleteElement,
+  onDeleteElements,
   onDuplicateElement,
+  onDuplicateElements,
   canUndo,
   canRedo,
   onUndo,
@@ -66,10 +82,18 @@ export function CenterPanel({
         <Canvas
           design={currentDesign}
           selectedElementId={selectedElementId}
+          selectedElementIds={selectedElementIds}
           onSelectElement={onSelectElement}
+          onSelectElements={onSelectElements}
+          onToggleSelectElement={onToggleSelectElement}
+          onGroupElements={onGroupElements}
+          onUngroupElements={onUngroupElements}
           onUpdateElement={onUpdateElement}
+          onBatchUpdateElements={onBatchUpdateElements}
           onDeleteElement={onDeleteElement}
+          onDeleteElements={onDeleteElements}
           onDuplicateElement={onDuplicateElement}
+          onDuplicateElements={onDuplicateElements}
           canUndo={canUndo}
           canRedo={canRedo}
           onUndo={onUndo}

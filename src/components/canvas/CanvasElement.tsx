@@ -7,6 +7,7 @@ interface CanvasElementProps {
   element: DesignElement;
   scale: number;
   isSelected: boolean;
+  isGroupMember?: boolean;
   onClick: (event: React.MouseEvent) => void;
   onMouseDown?: (event: React.MouseEvent) => void;
   onResizeStart?: (event: React.MouseEvent, corner: 'tl' | 'tr' | 'bl' | 'br') => void;
@@ -16,6 +17,7 @@ export function CanvasElement({
   element,
   scale,
   isSelected,
+  isGroupMember,
   onClick,
   onMouseDown,
   onResizeStart,
@@ -57,6 +59,8 @@ export function CanvasElement({
 
   const selectionOutline = isSelected
     ? '2px solid #3B82F6'
+    : isGroupMember
+    ? '2px dashed #60A5FA'
     : '1px dashed rgba(150, 150, 150, 0.25)';
 
   const handlePointerDown = (e: React.MouseEvent) => {
@@ -131,6 +135,13 @@ export function CanvasElement({
       className="group relative select-none"
     >
       {renderContent()}
+
+      {/* Group indicator badge */}
+      {element.groupId && isSelected && (
+        <div className="absolute -top-4 left-0 px-1.5 py-0.2 bg-blue-600 text-[9px] font-bold tracking-wider text-white rounded-xs uppercase shadow-xs pointer-events-none z-30">
+          Group
+        </div>
+      )}
 
       {/* Interactive Corner Resize Handles */}
       {isSelected && (

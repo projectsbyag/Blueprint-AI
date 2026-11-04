@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { DesignElement } from '@/types/blueprint';
@@ -11,10 +10,12 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
+} from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Sparkles } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
+import { PresetColorPicker } from '@/components/ui/preset-color-picker';
+import { PresetFontSelector } from '@/components/ui/preset-font-selector';
 
 interface TextEditorProps {
   element: DesignElement & { type: 'text' };
@@ -32,7 +33,6 @@ const initialShadow: TextShadow = { offsetX: '0px', offsetY: '0px', blurRadius: 
 
 function parseTextShadow(shadowString?: string): TextShadow {
   if (!shadowString || shadowString === 'none') return initialShadow;
-  // Basic parser: assumes "offsetX offsetY blurRadius color"
   const parts = shadowString.trim().split(/\s+/);
   if (parts.length === 4) {
     return {
@@ -67,7 +67,7 @@ export function TextEditor({ element, onUpdateElement }: TextEditorProps) {
       },
     });
   };
-  
+
   const handleFontSizeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newSize = e.target.value;
     handleStyleChange('fontSize', newSize ? `${parseFloat(newSize)}px` : undefined);
@@ -77,12 +77,12 @@ export function TextEditor({ element, onUpdateElement }: TextEditorProps) {
     const newShadow = { ...textShadow, [part]: value };
     setTextShadow(newShadow);
     if (newShadow.offsetX === '0px' && newShadow.offsetY === '0px' && newShadow.blurRadius === '0px') {
-        handleStyleChange('textShadow', 'none');
+      handleStyleChange('textShadow', 'none');
     } else {
-        handleStyleChange('textShadow', `${newShadow.offsetX} ${newShadow.offsetY} ${newShadow.blurRadius} ${newShadow.color}`);
+      handleStyleChange('textShadow', `${newShadow.offsetX} ${newShadow.offsetY} ${newShadow.blurRadius} ${newShadow.color}`);
     }
   };
-  
+
   const fontWeights = [
     { label: 'Light', value: '300' },
     { label: 'Normal', value: '400' },
@@ -99,17 +99,19 @@ export function TextEditor({ element, onUpdateElement }: TextEditorProps) {
     { label: 'Justify', value: 'justify' },
   ];
 
-
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 select-none">
+      {/* Content Field & AI Polish */}
       <div>
-        <Label htmlFor={`text-content-${element.id}`} className="text-sm font-medium">Content</Label>
+        <Label htmlFor={`text-content-${element.id}`} className="text-xs font-semibold">
+          Text Content
+        </Label>
         <Textarea
           id={`text-content-${element.id}`}
           value={element.content || ''}
           onChange={handleContentChange}
           rows={3}
-          className="mt-1"
+          className="mt-1 text-xs"
         />
         <div className="mt-2">
           <Button
@@ -137,8 +139,10 @@ export function TextEditor({ element, onUpdateElement }: TextEditorProps) {
           </Button>
 
           {aiCopySuggestions.length > 0 && (
-            <div className="mt-2 p-2 bg-muted/60 rounded border text-xs space-y-1">
-              <span className="font-semibold text-muted-foreground block text-[10px] uppercase">Select to replace:</span>
+            <div className="mt-2 p-2 bg-muted/60 rounded-lg border text-xs space-y-1">
+              <span className="font-semibold text-muted-foreground block text-[10px] uppercase">
+                Select to replace:
+              </span>
               {aiCopySuggestions.map((suggestion, idx) => (
                 <button
                   key={idx}
@@ -156,115 +160,163 @@ export function TextEditor({ element, onUpdateElement }: TextEditorProps) {
           )}
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-x-2 gap-y-4">
+
+      {/* Preset Font Family Selector */}
+      <PresetFontSelector
+        id={`text-font-family-${element.id}`}
+        label="Popular Preset Fonts"
+        value={(element.style?.fontFamily as string) || 'Inter'}
+        onChange={(font) => handleStyleChange('fontFamily', font)}
+      />
+
+      {/* Preset Color Picker */}
+      <PresetColorPicker
+        id={`text-color-${element.id}`}
+        label="Text Color"
+        value={(element.style?.color as string) || '#000000'}
+        onChange={(color) => handleStyleChange('color', color)}
+      />
+
+      {/* Size and Weight Grid */}
+      <div className="grid grid-cols-2 gap-2">
         <div>
-          <Label htmlFor={`text-font-size-${element.id}`} className="text-sm font-medium">Font Size (px)</Label>
+          <Label htmlFor={`text-font-size-${element.id}`} className="text-xs font-semibold">
+            Size (px)
+          </Label>
           <Input
             id={`text-font-size-${element.id}`}
             type="number"
             value={element.style?.fontSize ? parseFloat(element.style.fontSize as string) : ''}
             onChange={handleFontSizeChange}
-            className="mt-1 h-9"
-            placeholder="e.g., 24"
+            className="mt-1 h-8 text-xs"
+            placeholder="24"
           />
         </div>
+
         <div>
-          <Label htmlFor={`text-color-${element.id}`} className="text-sm font-medium">Color</Label>
-          <Input
-            id={`text-color-${element.id}`}
-            type="color"
-            value={(element.style?.color as string) || '#000000'}
-            onChange={(e) => handleStyleChange('color', e.target.value)}
-            className="mt-1 h-9 p-1 w-full"
-          />
-        </div>
-        <div>
-          <Label htmlFor={`text-font-family-${element.id}`} className="text-sm font-medium">Font Family</Label>
-          <Input
-            id={`text-font-family-${element.id}`}
-            type="text"
-            value={(element.style?.fontFamily as string) || 'Inter'}
-            onChange={(e) => handleStyleChange('fontFamily', e.target.value)}
-            className="mt-1 h-9"
-            placeholder="e.g., Inter, Arial"
-          />
-        </div>
-         <div>
-          <Label htmlFor={`text-font-weight-${element.id}`} className="text-sm font-medium">Font Weight</Label>
+          <Label htmlFor={`text-font-weight-${element.id}`} className="text-xs font-semibold">
+            Weight
+          </Label>
           <Select
             value={element.style?.fontWeight?.toString() || '400'}
             onValueChange={(value) => handleStyleChange('fontWeight', value)}
           >
-            <SelectTrigger id={`text-font-weight-${element.id}`} className="mt-1 h-9">
+            <SelectTrigger id={`text-font-weight-${element.id}`} className="mt-1 h-8 text-xs">
               <SelectValue placeholder="Select weight" />
             </SelectTrigger>
             <SelectContent>
-              {fontWeights.map(fw => (
-                <SelectItem key={fw.value} value={fw.value}>{fw.label} ({fw.value})</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-         <div>
-          <Label htmlFor={`text-line-height-${element.id}`} className="text-sm font-medium">Line Height</Label>
-          <Input
-            id={`text-line-height-${element.id}`}
-            type="text" // Allows units like 1.5 or 24px
-            value={(element.style?.lineHeight as string) || ''}
-            onChange={(e) => handleStyleChange('lineHeight', e.target.value)}
-            className="mt-1 h-9"
-            placeholder="e.g., 1.5 or 24px"
-          />
-        </div>
-        <div>
-          <Label htmlFor={`text-letter-spacing-${element.id}`} className="text-sm font-medium">Letter Spacing</Label>
-          <Input
-            id={`text-letter-spacing-${element.id}`}
-            type="text" // Allows units like 1px or 0.1em
-            value={(element.style?.letterSpacing as string) || ''}
-            onChange={(e) => handleStyleChange('letterSpacing', e.target.value)}
-            className="mt-1 h-9"
-            placeholder="e.g., 1px or 0.1em"
-          />
-        </div>
-        <div className="col-span-2">
-          <Label htmlFor={`text-text-align-${element.id}`} className="text-sm font-medium">Text Align</Label>
-          <Select
-            value={(element.style?.textAlign as string) || 'left'}
-            onValueChange={(value) => handleStyleChange('textAlign', value)}
-          >
-            <SelectTrigger id={`text-text-align-${element.id}`} className="mt-1 h-9">
-              <SelectValue placeholder="Select alignment" />
-            </SelectTrigger>
-            <SelectContent>
-              {textAlignOptions.map(option => (
-                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+              {fontWeights.map((fw) => (
+                <SelectItem key={fw.value} value={fw.value} className="text-xs">
+                  {fw.label} ({fw.value})
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
       </div>
 
-      <div className="space-y-2 border-t pt-4 mt-4">
-        <Label className="text-sm font-medium">Text Shadow</Label>
-        <div className="grid grid-cols-2 gap-x-2 gap-y-3">
-            <div>
-                <Label htmlFor={`text-shadow-offsetx-${element.id}`} className="text-xs">Offset X</Label>
-                <Input id={`text-shadow-offsetx-${element.id}`} type="text" value={textShadow.offsetX} onChange={(e) => handleTextShadowChange('offsetX', e.target.value)} className="mt-1 h-8" placeholder="e.g., 2px"/>
-            </div>
-            <div>
-                <Label htmlFor={`text-shadow-offsety-${element.id}`} className="text-xs">Offset Y</Label>
-                <Input id={`text-shadow-offsety-${element.id}`} type="text" value={textShadow.offsetY} onChange={(e) => handleTextShadowChange('offsetY', e.target.value)} className="mt-1 h-8" placeholder="e.g., 2px"/>
-            </div>
-            <div>
-                <Label htmlFor={`text-shadow-blur-${element.id}`} className="text-xs">Blur Radius</Label>
-                <Input id={`text-shadow-blur-${element.id}`} type="text" value={textShadow.blurRadius} onChange={(e) => handleTextShadowChange('blurRadius', e.target.value)} className="mt-1 h-8" placeholder="e.g., 5px"/>
-            </div>
-            <div>
-                <Label htmlFor={`text-shadow-color-${element.id}`} className="text-xs">Color</Label>
-                <Input id={`text-shadow-color-${element.id}`} type="color" value={textShadow.color} onChange={(e) => handleTextShadowChange('color', e.target.value)} className="mt-1 h-8 p-1 w-full"/>
-            </div>
+      {/* Alignment, Line Height, Letter Spacing */}
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <Label htmlFor={`text-line-height-${element.id}`} className="text-xs font-semibold">
+            Line Height
+          </Label>
+          <Input
+            id={`text-line-height-${element.id}`}
+            type="text"
+            value={(element.style?.lineHeight as string) || ''}
+            onChange={(e) => handleStyleChange('lineHeight', e.target.value)}
+            className="mt-1 h-8 text-xs"
+            placeholder="1.2"
+          />
         </div>
+        <div>
+          <Label htmlFor={`text-letter-spacing-${element.id}`} className="text-xs font-semibold">
+            Spacing
+          </Label>
+          <Input
+            id={`text-letter-spacing-${element.id}`}
+            type="text"
+            value={(element.style?.letterSpacing as string) || ''}
+            onChange={(e) => handleStyleChange('letterSpacing', e.target.value)}
+            className="mt-1 h-8 text-xs"
+            placeholder="1px"
+          />
+        </div>
+      </div>
+
+      <div>
+        <Label htmlFor={`text-text-align-${element.id}`} className="text-xs font-semibold">
+          Text Align
+        </Label>
+        <Select
+          value={(element.style?.textAlign as string) || 'left'}
+          onValueChange={(value) => handleStyleChange('textAlign', value)}
+        >
+          <SelectTrigger id={`text-text-align-${element.id}`} className="mt-1 h-8 text-xs">
+            <SelectValue placeholder="Select alignment" />
+          </SelectTrigger>
+          <SelectContent>
+            {textAlignOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value} className="text-xs">
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Text Shadow */}
+      <div className="space-y-2 border-t pt-3 mt-3">
+        <Label className="text-xs font-semibold">Text Shadow</Label>
+        <div className="grid grid-cols-3 gap-1.5">
+          <div>
+            <Label htmlFor={`text-shadow-offsetx-${element.id}`} className="text-[10px] text-muted-foreground">
+              Offset X
+            </Label>
+            <Input
+              id={`text-shadow-offsetx-${element.id}`}
+              type="text"
+              value={textShadow.offsetX}
+              onChange={(e) => handleTextShadowChange('offsetX', e.target.value)}
+              className="mt-0.5 h-7 text-xs"
+              placeholder="0px"
+            />
+          </div>
+          <div>
+            <Label htmlFor={`text-shadow-offsety-${element.id}`} className="text-[10px] text-muted-foreground">
+              Offset Y
+            </Label>
+            <Input
+              id={`text-shadow-offsety-${element.id}`}
+              type="text"
+              value={textShadow.offsetY}
+              onChange={(e) => handleTextShadowChange('offsetY', e.target.value)}
+              className="mt-0.5 h-7 text-xs"
+              placeholder="2px"
+            />
+          </div>
+          <div>
+            <Label htmlFor={`text-shadow-blur-${element.id}`} className="text-[10px] text-muted-foreground">
+              Blur
+            </Label>
+            <Input
+              id={`text-shadow-blur-${element.id}`}
+              type="text"
+              value={textShadow.blurRadius}
+              onChange={(e) => handleTextShadowChange('blurRadius', e.target.value)}
+              className="mt-0.5 h-7 text-xs"
+              placeholder="4px"
+            />
+          </div>
+        </div>
+
+        <PresetColorPicker
+          id={`text-shadow-color-${element.id}`}
+          label="Shadow Color"
+          value={textShadow.color}
+          onChange={(color) => handleTextShadowChange('color', color)}
+        />
       </div>
     </div>
   );

@@ -18,16 +18,27 @@ import {
   Trash2,
   ArrowUp,
   ArrowDown,
+  FolderPlus,
+  FolderMinus,
+  Folder,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface CanvasProps {
   design: DesignLayout | null;
   selectedElementId: string | null;
+  selectedElementIds?: string[];
   onSelectElement: (elementId: string | null) => void;
+  onSelectElements?: (elementIds: string[]) => void;
+  onToggleSelectElement?: (elementId: string) => void;
+  onGroupElements?: () => void;
+  onUngroupElements?: () => void;
   onUpdateElement?: (updatedElement: DesignElement) => void;
+  onBatchUpdateElements?: (updatedElements: DesignElement[]) => void;
   onDeleteElement?: (elementId: string) => void;
+  onDeleteElements?: (elementIds: string[]) => void;
   onDuplicateElement?: (elementId: string) => void;
+  onDuplicateElements?: (elementIds: string[]) => void;
   canUndo?: boolean;
   canRedo?: boolean;
   onUndo?: () => void;
@@ -86,10 +97,18 @@ const EXPERIMENTAL_PALETTES = [
 export function Canvas({
   design,
   selectedElementId,
+  selectedElementIds = [],
   onSelectElement,
+  onSelectElements,
+  onToggleSelectElement,
+  onGroupElements,
+  onUngroupElements,
   onUpdateElement,
+  onBatchUpdateElements,
   onDeleteElement,
+  onDeleteElements,
   onDuplicateElement,
+  onDuplicateElements,
   canUndo,
   canRedo,
   onUndo,
@@ -105,16 +124,23 @@ export function Canvas({
   const [showGrid, setShowGrid] = useState(false);
   const [paletteIndex, setPaletteIndex] = useState(0);
 
-  // Drag state
+  // Effective multi-selection IDs list
+  const effectiveSelectedIds =
+    selectedElementIds.length > 0
+      ? selectedElementIds
+      : selectedElementId
+      ? [selectedElementId]
+      : [];
+
+  // Drag state for single or multiple grouped elements
   const [dragState, setDragState] = useState<{
     elementId: string;
     startX: number;
     startY: number;
-    initialElemX: number;
-    initialElemY: number;
+    initialPositions: Record<string, { x: number; y: number }>;
   } | null>(null);
 
-  // Resize state
+  // Resize state (for primary selected element)
   const [resizeState, setResizeState] = useState<{
     elementId: string;
     corner: 'br' | 'tl' | 'tr' | 'bl';
@@ -144,70 +170,116 @@ export function Canvas({
     return () => window.removeEventListener('resize', calculateAutoFitScale);
   }, [calculateAutoFitScale]);
 
-  // Keyboard navigation for selected element
+  // Keyboard navigation for selected elements
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!selectedElementId || !design || !onUpdateElement) return;
+      if (effectiveSelectedIds.length === 0 || !design) return;
 
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
         return;
       }
 
-      const activeEl = design.elements.find((el) => el.id === selectedElementId);
-      if (!activeEl) return;
-
       const step = e.shiftKey ? 25 : 5;
 
       if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
-        onDeleteElement?.(selectedElementId);
-      } else if (e.key === 'ArrowLeft') {
+        if (onDeleteElements && effectiveSelectedIds.length > 1) {
+          onDeleteElements(effectiveSelectedIds);
+        } else if (onDeleteElement && effectiveSelectedIds[0]) {
+          onDeleteElement(effectiveSelectedIds[0]);
+        }
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
         e.preventDefault();
-        onUpdateElement({
-          ...activeEl,
-          position: { ...activeEl.position, x: Math.max(0, activeEl.position.x - step) },
-        });
-      } else if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        onUpdateElement({
-          ...activeEl,
-          position: { ...activeEl.position, x: Math.min(CANVAS_BASE_WIDTH, activeEl.position.x + step) },
-        });
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        onUpdateElement({
-          ...activeEl,
-          position: { ...activeEl.position, y: Math.max(0, activeEl.position.y - step) },
-        });
-      } else if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        onUpdateElement({
-          ...activeEl,
-          position: { ...activeEl.position, y: Math.min(CANVAS_BASE_HEIGHT, activeEl.position.y + step) },
-        });
+        const deltaX = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+        const deltaY = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+
+        const updated = design.elements
+          .filter((el) => effectiveSelectedIds.includes(el.id))
+          .map((el) => ({
+            ...el,
+            position: {
+              x: Math.max(0, Math.min(CANVAS_BASE_WIDTH, el.position.x + deltaX)),
+              y: Math.max(0, Math.min(CANVAS_BASE_HEIGHT, el.position.y + deltaY)),
+            },
+          }));
+
+        if (onBatchUpdateElements && updated.length > 1) {
+          onBatchUpdateElements(updated);
+        } else if (onUpdateElement && updated.length === 1) {
+          onUpdateElement(updated[0]);
+        }
       } else if (e.key === 'Escape') {
         onSelectElement(null);
+        onSelectElements?.([]);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedElementId, design, onUpdateElement, onDeleteElement, onSelectElement]);
+  }, [
+    effectiveSelectedIds,
+    design,
+    onUpdateElement,
+    onBatchUpdateElements,
+    onDeleteElement,
+    onDeleteElements,
+    onSelectElement,
+    onSelectElements,
+  ]);
 
   const handleStartDrag = useCallback(
     (e: React.MouseEvent, element: DesignElement) => {
       e.stopPropagation();
-      onSelectElement(element.id);
+
+      let activeIds: string[] = [];
+
+      if (e.shiftKey) {
+        // Toggle selection
+        onToggleSelectElement?.(element.id);
+        const alreadyIn = effectiveSelectedIds.includes(element.id);
+        activeIds = alreadyIn
+          ? effectiveSelectedIds.filter((id) => id !== element.id)
+          : [...effectiveSelectedIds, element.id];
+      } else if (effectiveSelectedIds.includes(element.id) && effectiveSelectedIds.length > 1) {
+        activeIds = effectiveSelectedIds;
+      } else if (element.groupId) {
+        // Auto select group members
+        const groupMembers =
+          design?.elements.filter((el) => el.groupId === element.groupId).map((el) => el.id) || [element.id];
+        activeIds = groupMembers;
+        if (onSelectElements) {
+          onSelectElements(groupMembers);
+        } else {
+          onSelectElement(element.id);
+        }
+      } else {
+        activeIds = [element.id];
+        if (onSelectElements) {
+          onSelectElements([element.id]);
+        } else {
+          onSelectElement(element.id);
+        }
+      }
+
+      // Record initial positions for all dragged items
+      const initialPositions: Record<string, { x: number; y: number }> = {};
+      if (design) {
+        design.elements.forEach((el) => {
+          if (activeIds.includes(el.id)) {
+            initialPositions[el.id] = { x: el.position.x, y: el.position.y };
+          }
+        });
+      }
+
       setDragState({
         elementId: element.id,
         startX: e.clientX,
         startY: e.clientY,
-        initialElemX: element.position.x,
-        initialElemY: element.position.y,
+        initialPositions,
       });
     },
-    [onSelectElement]
+    [design, effectiveSelectedIds, onSelectElement, onSelectElements, onToggleSelectElement]
   );
 
   const handleStartResize = useCallback(
@@ -229,27 +301,33 @@ export function Canvas({
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
-      if (!design || !onUpdateElement) return;
+      if (!design) return;
 
-      // Handle Dragging
+      // Handle Dragging (Single or Group)
       if (dragState) {
         const deltaX = (e.clientX - dragState.startX) / scale;
         const deltaY = (e.clientY - dragState.startY) / scale;
-        const element = design.elements.find((el) => el.id === dragState.elementId);
-        if (!element) return;
 
-        onUpdateElement({
-          ...element,
-          position: {
-            x: Math.round(dragState.initialElemX + deltaX),
-            y: Math.round(dragState.initialElemY + deltaY),
-          },
-        });
+        const updated = design.elements
+          .filter((el) => dragState.initialPositions[el.id] !== undefined)
+          .map((el) => ({
+            ...el,
+            position: {
+              x: Math.round(dragState.initialPositions[el.id].x + deltaX),
+              y: Math.round(dragState.initialPositions[el.id].y + deltaY),
+            },
+          }));
+
+        if (onBatchUpdateElements && updated.length > 1) {
+          onBatchUpdateElements(updated);
+        } else if (onUpdateElement && updated.length === 1) {
+          onUpdateElement(updated[0]);
+        }
         return;
       }
 
-      // Handle Resizing
-      if (resizeState) {
+      // Handle Resizing (Single element)
+      if (resizeState && onUpdateElement) {
         const deltaX = (e.clientX - resizeState.startX) / scale;
         const deltaY = (e.clientY - resizeState.startY) / scale;
         const element = design.elements.find((el) => el.id === resizeState.elementId);
@@ -285,7 +363,7 @@ export function Canvas({
         });
       }
     },
-    [dragState, resizeState, design, onUpdateElement, scale]
+    [dragState, resizeState, design, onUpdateElement, onBatchUpdateElements, scale]
   );
 
   const handleMouseUp = useCallback(() => {
@@ -296,6 +374,7 @@ export function Canvas({
   const handleCanvasClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
       onSelectElement(null);
+      onSelectElements?.([]);
     }
   };
 
@@ -345,7 +424,6 @@ export function Canvas({
   const handleAutoAlignAndDistribute = () => {
     if (!design || design.elements.length === 0 || !onLayoutUpdate) return;
 
-    // Filter out huge background cards so they don't break stacking
     const normalElements = design.elements.filter((el) => el.size.width < 850 || el.size.height < 850);
     const bgElements = design.elements.filter((el) => el.size.width >= 850 && el.size.height >= 850);
 
@@ -376,7 +454,10 @@ export function Canvas({
     });
   };
 
-  const selectedElement = design?.elements.find((el) => el.id === selectedElementId) || null;
+  const selectedElements = design?.elements.filter((el) => effectiveSelectedIds.includes(el.id)) || [];
+  const singleSelectedElement = selectedElements.length === 1 ? selectedElements[0] : null;
+  const isMultiSelection = selectedElements.length > 1;
+  const hasGroupedItems = selectedElements.some((el) => Boolean(el.groupId));
 
   return (
     <div
@@ -439,19 +520,94 @@ export function Canvas({
           </Button>
         </div>
 
-        {/* Center: Selected Element Quick Bar (appears when an element is chosen) */}
-        {selectedElement && (
+        {/* Center: Multi-Select & Grouping Quick Bar */}
+        {isMultiSelection && (
+          <div className="flex items-center gap-1 p-1 bg-background/95 backdrop-blur-md border border-primary/40 rounded-xl shadow-md pointer-events-auto animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-1.5 px-2 text-[11px] font-bold text-primary">
+              <Folder className="h-3.5 w-3.5" />
+              <span>{selectedElements.length} Items</span>
+            </div>
+            <div className="w-[1px] h-4 bg-border" />
+
+            {/* Group Action Button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onGroupElements}
+              className="h-7 px-2 text-xs gap-1 text-primary hover:bg-primary/10 font-semibold"
+              title="Group selected elements together (Ctrl+G)"
+            >
+              <FolderPlus className="h-3.5 w-3.5" />
+              <span>Group</span>
+            </Button>
+
+            {/* Ungroup Action Button (if any are already grouped) */}
+            {hasGroupedItems && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onUngroupElements}
+                className="h-7 px-2 text-xs gap-1 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950 font-medium"
+                title="Ungroup selected elements (Ctrl+Shift+G)"
+              >
+                <FolderMinus className="h-3.5 w-3.5" />
+                <span>Ungroup</span>
+              </Button>
+            )}
+
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+              title="Duplicate Selected (Ctrl+D)"
+              onClick={() => onDuplicateElements?.(effectiveSelectedIds)}
+            >
+              <Copy className="h-3.5 w-3.5" />
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-destructive hover:bg-destructive/10"
+              title="Delete Selected (Backspace/Del)"
+              onClick={() => onDeleteElements?.(effectiveSelectedIds)}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        )}
+
+        {/* Center: Single Element Quick Bar */}
+        {!isMultiSelection && singleSelectedElement && (
           <div className="hidden lg:flex items-center gap-1 p-1 bg-background/95 backdrop-blur-md border rounded-xl shadow-md pointer-events-auto animate-in fade-in zoom-in-95 duration-150">
             <span className="text-[11px] font-bold uppercase tracking-wider text-primary px-2">
-              {selectedElement.type}
+              {singleSelectedElement.type}
             </span>
+
+            {/* If element belongs to a group, allow instant ungrouping */}
+            {singleSelectedElement.groupId && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onUngroupElements}
+                  className="h-7 px-2 text-xs gap-1 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950 font-medium"
+                  title="Remove from group (Ctrl+Shift+G)"
+                >
+                  <FolderMinus className="h-3.5 w-3.5" />
+                  <span>Ungroup</span>
+                </Button>
+                <div className="w-[1px] h-4 bg-border" />
+              </>
+            )}
+
             <div className="w-[1px] h-4 bg-border" />
             <Button
               variant="ghost"
               size="icon"
               className="h-7 w-7 text-muted-foreground hover:text-foreground"
               title="Duplicate (Ctrl+D)"
-              onClick={() => onDuplicateElement?.(selectedElement.id)}
+              onClick={() => onDuplicateElement?.(singleSelectedElement.id)}
             >
               <Copy className="h-3.5 w-3.5" />
             </Button>
@@ -462,8 +618,11 @@ export function Canvas({
               title="Center Horizontally"
               onClick={() => {
                 onUpdateElement?.({
-                  ...selectedElement,
-                  position: { ...selectedElement.position, x: Math.round((1000 - selectedElement.size.width) / 2) },
+                  ...singleSelectedElement,
+                  position: {
+                    ...singleSelectedElement.position,
+                    x: Math.round((1000 - singleSelectedElement.size.width) / 2),
+                  },
                 });
               }}
             >
@@ -475,8 +634,8 @@ export function Canvas({
               className="h-7 w-7 text-muted-foreground hover:text-foreground"
               title="Bring Forward"
               onClick={() => {
-                const z = Number(selectedElement.style?.zIndex) || 1;
-                onUpdateElement?.({ ...selectedElement, style: { ...selectedElement.style, zIndex: z + 1 } });
+                const z = Number(singleSelectedElement.style?.zIndex) || 1;
+                onUpdateElement?.({ ...singleSelectedElement, style: { ...singleSelectedElement.style, zIndex: z + 1 } });
               }}
             >
               <ArrowUp className="h-3.5 w-3.5" />
@@ -487,8 +646,11 @@ export function Canvas({
               className="h-7 w-7 text-muted-foreground hover:text-foreground"
               title="Send Backward"
               onClick={() => {
-                const z = Number(selectedElement.style?.zIndex) || 1;
-                onUpdateElement?.({ ...selectedElement, style: { ...selectedElement.style, zIndex: Math.max(0, z - 1) } });
+                const z = Number(singleSelectedElement.style?.zIndex) || 1;
+                onUpdateElement?.({
+                  ...singleSelectedElement,
+                  style: { ...singleSelectedElement.style, zIndex: Math.max(0, z - 1) },
+                });
               }}
             >
               <ArrowDown className="h-3.5 w-3.5" />
@@ -498,7 +660,7 @@ export function Canvas({
               size="icon"
               className="h-7 w-7 text-destructive hover:bg-destructive/10"
               title="Delete (Backspace/Del)"
-              onClick={() => onDeleteElement?.(selectedElement.id)}
+              onClick={() => onDeleteElement?.(singleSelectedElement.id)}
             >
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
@@ -576,20 +738,47 @@ export function Canvas({
         onClick={handleCanvasClick}
       >
         {design &&
-          design.elements.map((element) => (
-            <CanvasElement
-              key={element.id}
-              element={element}
-              scale={scale}
-              isSelected={element.id === selectedElementId}
-              onMouseDown={(e) => handleStartDrag(e, element)}
-              onResizeStart={(e, corner) => handleStartResize(e, element, corner)}
-              onClick={(e) => {
-                e.stopPropagation();
-                onSelectElement(element.id);
-              }}
-            />
-          ))}
+          design.elements.map((element) => {
+            const isSelected = effectiveSelectedIds.includes(element.id);
+            const isGroupMember = Boolean(
+              !isSelected &&
+                element.groupId &&
+                design.elements.some((el) => el.groupId === element.groupId && effectiveSelectedIds.includes(el.id))
+            );
+
+            return (
+              <CanvasElement
+                key={element.id}
+                element={element}
+                scale={scale}
+                isSelected={isSelected}
+                isGroupMember={isGroupMember}
+                onMouseDown={(e) => handleStartDrag(e, element)}
+                onResizeStart={(e, corner) => handleStartResize(e, element, corner)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (e.shiftKey) {
+                    onToggleSelectElement?.(element.id);
+                  } else if (element.groupId) {
+                    const groupMembers = design.elements
+                      .filter((el) => el.groupId === element.groupId)
+                      .map((el) => el.id);
+                    if (onSelectElements) {
+                      onSelectElements(groupMembers);
+                    } else {
+                      onSelectElement(element.id);
+                    }
+                  } else {
+                    if (onSelectElements) {
+                      onSelectElements([element.id]);
+                    } else {
+                      onSelectElement(element.id);
+                    }
+                  }
+                }}
+              />
+            );
+          })}
 
         {(!design || design.elements.length === 0) && (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground p-6 text-center pointer-events-none">
