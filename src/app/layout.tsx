@@ -6,10 +6,10 @@ import { AuthProvider } from '@/context/AuthContext';
 
 export const metadata: Metadata = {
   title: {
-    default: 'Blueprint - AI Design Tool',
+    default: 'Blueprint - AI Graphics & Carousel Studio',
     template: '%s | Blueprint',
   },
-  description: 'Create stunning designs with AI. Your personal design assistant.',
+  description: 'AI-powered graphic design tool to generate and customize layouts, shapes, images, and text.',
 };
 
 export default function RootLayout({

@@ -7,7 +7,8 @@ import { LeftPanel } from '@/components/layout/LeftPanel';
 import { CenterPanel } from '@/components/layout/CenterPanel';
 import { RightPanel } from '@/components/layout/RightPanel';
 import type { DesignLayout, DesignElement, DesignPage } from '@/types/blueprint';
-import { addIdsToElements } from '@/components/canvas/Canvas';
+import { addIdsToElements, addIdsToLayout } from '@/components/canvas/Canvas';
+import { PREDEFINED_TEMPLATES } from '@/components/tools/TemplateLibrary';
 import { useAuth } from '@/context/AuthContext';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -110,6 +111,23 @@ export default function BlueprintEditorPage() {
       return nextHistory;
     });
   }, [historyIndex]);
+
+  // Load template if requested via URL query (e.g. /blueprint?template=2)
+  const templateLoadedRef = useRef(false);
+  useEffect(() => {
+    if (templateLoadedRef.current || typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const templateIdxStr = params.get('template');
+    if (templateIdxStr !== null) {
+      const idx = parseInt(templateIdxStr, 10);
+      if (!isNaN(idx) && PREDEFINED_TEMPLATES[idx]) {
+        templateLoadedRef.current = true;
+        const selected = PREDEFINED_TEMPLATES[idx];
+        const layoutWithIds = addIdsToLayout(selected);
+        commitToHistory(layoutWithIds);
+      }
+    }
+  }, [commitToHistory]);
 
   const handleUndo = useCallback(() => {
     if (historyIndex > 0) {
