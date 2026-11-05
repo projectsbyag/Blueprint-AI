@@ -71,16 +71,81 @@ async function renderSlideToDataUrl(elements: DesignElement[], bgColor: string):
     if (el.type === 'shape') {
       ctx.fillStyle = (el.style?.backgroundColor as string) || '#E2E8F0';
       const rad = parseFloat(el.style?.borderRadius as string) || 0;
-      if (rad > 0 && typeof (ctx as any).roundRect === 'function') {
+      let strokeW = parseFloat((el.style?.borderWidth as string) || '0') || 0;
+      let strokeColor = (el.style?.borderColor as string) || 'transparent';
+      if (strokeW === 0 && el.style?.border && typeof el.style.border === 'string') {
+        const parts = el.style.border.trim().split(/\s+/);
+        strokeW = parseFloat(parts[0]) || 0;
+        if (parts.length >= 3) strokeColor = parts.slice(2).join(' ');
+      }
+      const shapeType = el.style?.shapeType;
+
+      if (shapeType === 'arrow-right') {
+        ctx.beginPath();
+        const w = el.size.width;
+        const h = el.size.height;
+        ctx.moveTo(0, h * 0.35);
+        ctx.lineTo(w * 0.65, h * 0.35);
+        ctx.lineTo(w * 0.65, h * 0.1);
+        ctx.lineTo(w, h * 0.5);
+        ctx.lineTo(w * 0.65, h * 0.9);
+        ctx.lineTo(w * 0.65, h * 0.65);
+        ctx.lineTo(0, h * 0.65);
+        ctx.closePath();
+        ctx.fill();
+        if (strokeW > 0) {
+          ctx.lineWidth = strokeW;
+          ctx.strokeStyle = strokeColor;
+          ctx.stroke();
+        }
+      } else if (shapeType === 'arrow-left') {
+        ctx.beginPath();
+        const w = el.size.width;
+        const h = el.size.height;
+        ctx.moveTo(w, h * 0.35);
+        ctx.lineTo(w * 0.35, h * 0.35);
+        ctx.lineTo(w * 0.35, h * 0.1);
+        ctx.lineTo(0, h * 0.5);
+        ctx.lineTo(w * 0.35, h * 0.9);
+        ctx.lineTo(w * 0.35, h * 0.65);
+        ctx.lineTo(w, h * 0.65);
+        ctx.closePath();
+        ctx.fill();
+        if (strokeW > 0) {
+          ctx.lineWidth = strokeW;
+          ctx.strokeStyle = strokeColor;
+          ctx.stroke();
+        }
+      } else if (shapeType === 'triangle') {
+        ctx.beginPath();
+        const w = el.size.width;
+        const h = el.size.height;
+        ctx.moveTo(w * 0.5, 0);
+        ctx.lineTo(w, h);
+        ctx.lineTo(0, h);
+        ctx.closePath();
+        ctx.fill();
+        if (strokeW > 0) {
+          ctx.lineWidth = strokeW;
+          ctx.strokeStyle = strokeColor;
+          ctx.stroke();
+        }
+      } else if (rad > 0 && typeof (ctx as any).roundRect === 'function') {
         ctx.beginPath();
         (ctx as any).roundRect(0, 0, el.size.width, el.size.height, Math.min(rad, el.size.height / 2));
         ctx.fill();
-        if (el.style?.border) {
-          ctx.strokeStyle = (el.style?.borderColor as string) || '#FFFFFF';
+        if (strokeW > 0) {
+          ctx.lineWidth = strokeW;
+          ctx.strokeStyle = strokeColor;
           ctx.stroke();
         }
       } else {
         ctx.fillRect(0, 0, el.size.width, el.size.height);
+        if (strokeW > 0) {
+          ctx.lineWidth = strokeW;
+          ctx.strokeStyle = strokeColor;
+          ctx.strokeRect(0, 0, el.size.width, el.size.height);
+        }
       }
     } else if (el.type === 'image' && el.source) {
       try {
@@ -446,16 +511,16 @@ export function AppHeader({
               <div className="flex items-center gap-1 border-l pl-2 ml-1">
                 {onToggleLeftPanel && (
                   <Button
-                    variant={isLeftPanelCollapsed ? 'default' : 'ghost'}
+                    variant={!isLeftPanelCollapsed ? 'default' : 'outline'}
                     size="sm"
                     onClick={onToggleLeftPanel}
-                    className="h-8 px-2 text-xs gap-1.5"
-                    title={isLeftPanelCollapsed ? 'Expand Toolbox Panel' : 'Collapse Toolbox Panel'}
+                    className="h-8 px-2 text-xs gap-1.5 shadow-xs"
+                    title={!isLeftPanelCollapsed ? 'Tools Panel is open (click to collapse)' : 'Open Tools Panel'}
                   >
-                    {isLeftPanelCollapsed ? (
-                      <PanelLeftOpen className="h-3.5 w-3.5" />
+                    {!isLeftPanelCollapsed ? (
+                      <PanelLeftClose className="h-3.5 w-3.5" />
                     ) : (
-                      <PanelLeftClose className="h-3.5 w-3.5 text-muted-foreground" />
+                      <PanelLeftOpen className="h-3.5 w-3.5" />
                     )}
                     <span className="hidden xl:inline">Tools</span>
                   </Button>
@@ -463,14 +528,14 @@ export function AppHeader({
 
                 {onToggleRightPanel && (
                   <Button
-                    variant={isRightPanelCollapsed ? 'default' : 'outline'}
+                    variant={!isRightPanelCollapsed ? 'default' : 'outline'}
                     size="sm"
                     onClick={onToggleRightPanel}
                     className="h-8 px-2.5 text-xs gap-1.5 shadow-xs"
-                    title={isRightPanelCollapsed ? 'Open Properties Inspector (or click the vertical sidebar button)' : 'Collapse Properties Inspector'}
+                    title={!isRightPanelCollapsed ? 'Properties Inspector is open (click to collapse)' : 'Open Properties Inspector'}
                   >
                     <SlidersHorizontal className="h-3.5 w-3.5" />
-                    <span>{isRightPanelCollapsed ? 'Open Properties' : 'Properties'}</span>
+                    <span>{!isRightPanelCollapsed ? 'Properties' : 'Open Properties'}</span>
                   </Button>
                 )}
               </div>

@@ -16,7 +16,7 @@ export default function LandingPage() {
         {/* Hero Badge */}
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary border border-primary/20 text-xs font-semibold mb-6">
           <Sparkles className="w-3.5 h-3.5 text-primary" />
-          <span>Powered by Gemini 3.8 Flash</span>
+          <span>Professional Design & Carousel Studio</span>
         </div>
 
         {/* Hero Title */}
@@ -49,9 +49,9 @@ export default function LandingPage() {
             <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary mb-4">
               <Sparkles className="w-5 h-5" />
             </div>
-            <h3 className="text-base font-bold font-headline mb-2">Gemini AI Layouts</h3>
+            <h3 className="text-base font-bold font-headline mb-2">Curated Templates</h3>
             <p className="text-sm text-muted-foreground">
-              Describe your idea in plain language and receive complete multi-layered layouts with visual hierarchy.
+              Select from curated multi-slide carousels, educational roadmaps, and marketing flyers ready to edit.
             </p>
           </div>
 
@@ -61,7 +61,7 @@ export default function LandingPage() {
             </div>
             <h3 className="text-base font-bold font-headline mb-2">Interactive Canvas</h3>
             <p className="text-sm text-muted-foreground">
-              Drag, resize, rotate, style, and re-order elements freely on a pixel-precise 1000×1000 canvas.
+              Drag, resize across 8 handles, style, and re-order elements freely on a pixel-precise 1000×1000 canvas.
             </p>
           </div>
 
@@ -69,16 +69,16 @@ export default function LandingPage() {
             <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary mb-4">
               <Download className="w-5 h-5" />
             </div>
-            <h3 className="text-base font-bold font-headline mb-2">Instant PNG Export</h3>
+            <h3 className="text-base font-bold font-headline mb-2">Multi-Format Export</h3>
             <p className="text-sm text-muted-foreground">
-              Download your creations as high-resolution PNG images ready for social media, print, and websites.
+              Export your creations as print-ready PDFs, multi-page slide decks, or high-res PNG images.
             </p>
           </div>
         </div>
       </main>
 
       <footer className="py-6 text-center text-muted-foreground text-xs border-t">
-        <p>&copy; {new Date().getFullYear()} Blueprint AI Studio. Built with Next.js & Google GenAI.</p>
+        <p>&copy; {new Date().getFullYear()} Blueprint Design Studio. Built with Next.js & Tailwind CSS.</p>
       </footer>
     </div>
   );

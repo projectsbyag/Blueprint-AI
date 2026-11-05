@@ -1,11 +1,12 @@
 import { GoogleGenAI, Type } from '@google/genai';
-import type { DesignLayout, DesignElement } from '@/types/blueprint';
 
-const getAiClient = () => {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENAI_API_KEY;
-  if (!apiKey) return null;
+const getAiClient = (customApiKey?: string) => {
+  // Trim and validate customApiKey to prevent passing whitespace or empty strings
+  const cleanCustomKey = customApiKey?.trim() ? customApiKey.trim() : undefined;
+  const apiKey = cleanCustomKey || process.env.GEMINI_API_KEY || process.env.GOOGLE_GENAI_API_KEY;
+  if (!apiKey || !apiKey.trim()) return null;
   return new GoogleGenAI({
-    apiKey,
+    apiKey: apiKey.trim(),
     httpOptions: {
       headers: {
         'User-Agent': 'aistudio-build',
@@ -19,6 +20,10 @@ export interface GenerateDesignLayoutOptions {
   style?: string;
   category?: string;
   format?: 'infographic' | 'poster' | 'diagram' | 'carousel' | 'auto';
+  apiKey?: string;
+  model?: string;
+  mcpContext?: string;
+  generateImagesWithNanoBanana?: boolean;
 }
 
 export interface GeneratedLayoutResult {
@@ -50,10 +55,17 @@ export interface GeneratedLayoutResult {
 
 // Curated stock photo mappings by topic for high quality visuals
 const CURATED_IMAGE_TOPICS: Record<string, string[]> = {
+  python: [
+    'https://images.unsplash.com/photo-1526379095098-d400fd0bf935?auto=format&fit=crop&w=1000&q=80',
+    'https://images.unsplash.com/photo-1515879218367-8466d910aaa4?auto=format&fit=crop&w=1000&q=80',
+  ],
+  code: [
+    'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=1000&q=80',
+    'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&w=1000&q=80',
+  ],
   cloud: [
     'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1000&q=80',
     'https://images.unsplash.com/photo-1544197150-b99a580bb7a8?auto=format&fit=crop&w=1000&q=80',
-    'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1000&q=80',
   ],
   coffee: [
     'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=1000&q=80',
@@ -69,18 +81,12 @@ const CURATED_IMAGE_TOPICS: Record<string, string[]> = {
   ],
   nature: [
     'https://images.unsplash.com/photo-1518495973542-4542c06a5843?auto=format&fit=crop&w=1000&q=80',
-    'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1000&q=80',
   ],
   music: [
     'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=1000&q=80',
-    'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=1000&q=80',
   ],
   fitness: [
     'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=1000&q=80',
-    'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1000&q=80',
-  ],
-  fashion: [
-    'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=1000&q=80',
   ],
   business: [
     'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1000&q=80',
@@ -94,883 +100,661 @@ function getMatchingCuratedImage(prompt: string, index: number = 0): string {
       return urls[index % urls.length];
     }
   }
-  return 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1000&q=80';
+  return 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=1000&q=80';
 }
 
-export async function generateAIGraphicsLayouts(options: GenerateDesignLayoutOptions): Promise<{ layouts: GeneratedLayoutResult[] }> {
-  const { prompt, style = 'Modern Professional', category = 'Graphic Design', format = 'auto' } = options;
-  const ai = getAiClient();
-
-  if (!ai) {
-    console.warn('GEMINI_API_KEY not found in environment, synthesizing design layouts with intent detection.');
-    return synthesizeSmartLayouts(prompt, style);
-  }
-
-  const promptLower = prompt.toLowerCase();
-  const isInfographicOrRoadmap =
-    format === 'infographic' ||
-    promptLower.includes('roadmap') ||
-    promptLower.includes('infographic') ||
-    promptLower.includes('timeline') ||
-    promptLower.includes('steps') ||
-    promptLower.includes('guide') ||
-    promptLower.includes('path') ||
-    promptLower.includes('pipeline') ||
-    promptLower.includes('cheatsheet');
-
-  const systemInstruction = `You are a world-class graphic designer specializing in both educational infographics/roadmaps and promotional graphics.
-Canvas dimensions: 1000x1000 coordinate space (x: 0-1000, y: 0-1000).
-
-DESIGN INSTRUCTIONS:
-${
-  isInfographicOrRoadmap
-    ? `The user is requesting an EDUCATIONAL INFOGRAPHIC or ROADMAP.
-- Design a structured visual guide, roadmap, or timeline with sequential stages or milestones.
-- Include a bold Top Header (title & subtitle).
-- Create 3 to 5 milestone cards/blocks (e.g. "Phase 1: Foundations", "Phase 2: Core Services", "Phase 3: DevOps & IaC", "Phase 4: Kubernetes", "Phase 5: Architect").
-- Use background cards for each step (shapes with borderRadius and border) with high-contrast text.
-- Include informative, realistic domain-specific bullet points or descriptions inside each card.
-- Add small numbered badges ("01", "02", "03", etc.) for each stage.
-- Do NOT generate a generic marketing flyer with a "buy now" CTA; make it a genuine informative infographic.`
-    : `The user is requesting a MARKETING, EVENT, or PROMOTIONAL GRAPHIC.
-- Follow strong visual hierarchy: Tagline/Eyebrow badge, dominant headline, supporting body, visual photo/shape container, and CTA button.
-- Ensure high contrast and professional typography.`
-}
-
-Return 2 distinct, highly tailored layouts. Keep token output clean and efficient.`;
+/**
+ * Generates an actual AI image using Nano Banana (gemini-3.1-flash-lite-image)
+ * and returns a base64 data URL that can be placed directly onto the Canvas!
+ */
+export async function generateNanoBananaImage(
+  imagePrompt: string,
+  customApiKey?: string
+): Promise<string | null> {
+  const ai = getAiClient(customApiKey);
+  if (!ai) return null;
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
-      contents: `Design 2 complete custom graphic design layouts for:
-User Request: "${prompt}"
-Style Theme: "${style}"
-Format Intent: "${isInfographicOrRoadmap ? 'Educational Infographic / Step-by-Step Roadmap' : category}"
-
-Return 2 layout options in the layouts array with full positioning, sizing, and styling.`,
-      config: {
-        systemInstruction,
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            layouts: {
-              type: Type.ARRAY,
-              description: 'Array of 2 custom design layout variations',
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  description: { type: Type.STRING, description: 'Descriptive title of the layout' },
-                  canvasBackgroundColor: { type: Type.STRING, description: 'Hex or HSL color code' },
-                  elements: {
-                    type: Type.ARRAY,
-                    items: {
-                      type: Type.OBJECT,
-                      properties: {
-                        type: { type: Type.STRING, description: 'text, image, or shape' },
-                        position: {
-                          type: Type.OBJECT,
-                          properties: {
-                            x: { type: Type.NUMBER },
-                            y: { type: Type.NUMBER },
-                          },
-                          required: ['x', 'y'],
-                        },
-                        size: {
-                          type: Type.OBJECT,
-                          properties: {
-                            width: { type: Type.NUMBER },
-                            height: { type: Type.NUMBER },
-                          },
-                          required: ['width', 'height'],
-                        },
-                        content: { type: Type.STRING },
-                        source: { type: Type.STRING },
-                        style: {
-                          type: Type.OBJECT,
-                          properties: {
-                            backgroundColor: { type: Type.STRING },
-                            color: { type: Type.STRING },
-                            fontFamily: { type: Type.STRING },
-                            fontSize: { type: Type.STRING },
-                            fontWeight: { type: Type.STRING },
-                            textAlign: { type: Type.STRING },
-                            borderRadius: { type: Type.STRING },
-                            border: { type: Type.STRING },
-                            opacity: { type: Type.NUMBER },
-                            letterSpacing: { type: Type.STRING },
-                            zIndex: { type: Type.NUMBER },
-                          },
-                        },
-                      },
-                      required: ['type', 'position', 'size'],
-                    },
-                  },
-                },
-                required: ['description', 'canvasBackgroundColor', 'elements'],
-              },
-            },
-          },
-          required: ['layouts'],
-        },
-      },
+      model: 'gemini-3.1-flash-lite-image',
+      contents: `Create a clean, high-resolution, modern graphic illustration or visual asset for: "${imagePrompt}". Minimalist, vibrant, professional aesthetic suitable for a design studio canvas.`,
     });
 
-    const text = response.text;
-    if (!text) {
-      throw new Error('Gemini response was empty');
+    const parts = response.candidates?.[0]?.content?.parts || [];
+    for (const part of parts) {
+      if (part.inlineData && part.inlineData.data) {
+        const mimeType = part.inlineData.mimeType || 'image/png';
+        return `data:${mimeType};base64,${part.inlineData.data}`;
+      }
     }
-
-    const parsed = JSON.parse(text);
-    if (!parsed.layouts || !Array.isArray(parsed.layouts) || parsed.layouts.length === 0) {
-      throw new Error('No layouts returned in parsed response');
-    }
-
-    const enrichedLayouts = parsed.layouts.map((layout: GeneratedLayoutResult, idx: number) => ({
-      ...layout,
-      elements: layout.elements.map((el) => {
-        if (el.type === 'image') {
-          if (!el.source || el.source.includes('placehold.co') || el.source.includes('example.com')) {
-            el.source = getMatchingCuratedImage(prompt, idx);
-          }
-        }
-        return el;
-      }),
-    }));
-
-    return { layouts: enrichedLayouts };
-  } catch (error) {
-    console.error('Gemini API call failed, falling back to smart intent design synthesis:', error);
-    return synthesizeSmartLayouts(prompt, style);
+    return null;
+  } catch (err) {
+    console.warn('Nano Banana image generation fell back to stock photo:', err);
+    return null;
   }
 }
 
 /**
- * Smart Fallback Synthesizer:
- * Detects user intent (Roadmap/Infographic vs Poster/Promo) and provides
- * actual custom educational diagrams and roadmaps if requested.
+ * Visual Palette helper based on user's selected style
  */
-function synthesizeSmartLayouts(prompt: string, style: string, format?: string): { layouts: GeneratedLayoutResult[] } {
+function getThemePalette(style: string = 'Modern Professional') {
+  const s = style.toLowerCase();
+  if (s.includes('cyberpunk') || s.includes('neon')) {
+    return {
+      canvasBg: '#090A10',
+      cardBg: '#121324',
+      textPrimary: '#FFFFFF',
+      textSecondary: '#94A3B8',
+      accents: ['#F43F5E', '#06B6D4', '#A855F7', '#10B981', '#F59E0B'],
+    };
+  }
+  if (s.includes('warm') || s.includes('editorial')) {
+    return {
+      canvasBg: '#FAF8F5',
+      cardBg: '#FFFFFF',
+      textPrimary: '#1C1917',
+      textSecondary: '#57534E',
+      accents: ['#EA580C', '#D97706', '#059669', '#2563EB', '#7C3AED'],
+    };
+  }
+  if (s.includes('clean') || s.includes('minimal')) {
+    return {
+      canvasBg: '#F8FAFC',
+      cardBg: '#FFFFFF',
+      textPrimary: '#0F172A',
+      textSecondary: '#475569',
+      accents: ['#2563EB', '#0D9488', '#4F46E5', '#E11D48', '#D97706'],
+    };
+  }
+  if (s.includes('luxury') || s.includes('dark')) {
+    return {
+      canvasBg: '#090D16',
+      cardBg: '#111827',
+      textPrimary: '#F9FAFB',
+      textSecondary: '#9CA3AF',
+      accents: ['#F59E0B', '#EAB308', '#38BDF8', '#A855F7', '#10B981'],
+    };
+  }
+  // Default Modern Professional (Dark Slate)
+  return {
+    canvasBg: '#0B0F19',
+    cardBg: '#1E293B',
+    textPrimary: '#FFFFFF',
+    textSecondary: '#CBD5E1',
+    accents: ['#38BDF8', '#10B981', '#F59E0B', '#EC4899', '#8B5CF6'],
+  };
+}
+
+/**
+ * Compiler that turns bespoke AI semantic content into pixel-perfect 1000x1000 canvas elements
+ * for ANY topic (e.g. "Python Setup Guide", "Rust Ownership Rules", "Matcha Cafe Launch").
+ */
+interface BespokeStructuredPlan {
+  mainTitle: string;
+  subtitle: string;
+  badgeText: string;
+  footerNote: string;
+  ctaText: string;
+  steps: Array<{
+    stepNumber: string;
+    heading: string;
+    details: string;
+  }>;
+  carouselSlides?: Array<{
+    slideBadge: string;
+    slideTitle: string;
+    slideSubtitle: string;
+    bulletPoints: string[];
+  }>;
+}
+
+function compileBespokePlanToLayouts(
+  plan: BespokeStructuredPlan,
+  prompt: string,
+  style: string,
+  format: string,
+  generatedImageUrl: string | null
+): GeneratedLayoutResult[] {
+  const palette = getThemePalette(style);
   const p = prompt.toLowerCase();
-  const sampleImg = getMatchingCuratedImage(prompt, 0);
 
   const isCarousel =
     format === 'carousel' ||
     p.includes('carousel') ||
     p.includes('slide') ||
     p.includes('deck') ||
-    p.includes('linkedin') ||
-    p.includes('multi-page');
+    p.includes('linkedin');
 
+  const isPoster =
+    format === 'poster' ||
+    p.includes('poster') ||
+    p.includes('flyer') ||
+    p.includes('promo') ||
+    p.includes('event') ||
+    p.includes('launch');
+
+  const visualImg = generatedImageUrl || getMatchingCuratedImage(prompt, 0);
+  const steps = plan.steps && plan.steps.length > 0 ? plan.steps.slice(0, 5) : [
+    { stepNumber: '01', heading: `Step 1: ${plan.mainTitle}`, details: plan.subtitle },
+    { stepNumber: '02', heading: 'Core Configuration', details: 'Configure essential parameters and environment.' },
+    { stepNumber: '03', heading: 'Verification & Testing', details: 'Run diagnostics to verify setup.' },
+    { stepNumber: '04', heading: 'Production Ready', details: 'Deploy and monitor your workflow.' },
+  ];
+
+  // 1. IF CAROUSEL MODE: Build a genuine multi-slide carousel specifically for this topic!
   if (isCarousel) {
-    const slide1Elements: any[] = [
+    const slidesData = plan.carouselSlides && plan.carouselSlides.length >= 3
+      ? plan.carouselSlides
+      : [
+          {
+            slideBadge: `SLIDE 1 OF ${steps.length + 1} • OVERVIEW`,
+            slideTitle: plan.mainTitle.toUpperCase(),
+            slideSubtitle: plan.subtitle,
+            bulletPoints: steps.map((s) => `${s.stepNumber}. ${s.heading}`),
+          },
+          ...steps.map((s, idx) => ({
+            slideBadge: `SLIDE ${idx + 2} OF ${steps.length + 1} • STEP ${s.stepNumber}`,
+            slideTitle: s.heading.toUpperCase(),
+            slideSubtitle: s.details,
+            bulletPoints: s.details.split(/[•.\n]/).map((b) => b.trim()).filter(Boolean),
+          })),
+        ];
+
+    const pages = slidesData.map((slide, sIdx) => {
+      const accent = palette.accents[sIdx % palette.accents.length];
+      const slideElements: any[] = [
+        {
+          type: 'shape',
+          position: { x: 50, y: 50 },
+          size: { width: 900, height: 900 },
+          style: { backgroundColor: palette.cardBg, borderRadius: '24px', borderWidth: '2px', borderStyle: 'solid', borderColor: accent, zIndex: 1 },
+        },
+        {
+          type: 'shape',
+          position: { x: 90, y: 90 },
+          size: { width: 280, height: 42 },
+          style: { backgroundColor: accent, borderRadius: '9999px', zIndex: 2 },
+        },
+        {
+          type: 'text',
+          position: { x: 90, y: 99 },
+          size: { width: 280, height: 30 },
+          content: slide.slideBadge || `SLIDE ${sIdx + 1}`,
+          style: { color: '#FFFFFF', fontSize: '13px', fontWeight: '800', textAlign: 'center', fontFamily: 'Space Grotesk, sans-serif', letterSpacing: '1.5px', zIndex: 3 },
+        },
+        {
+          type: 'text',
+          position: { x: 90, y: 170 },
+          size: { width: 820, height: 130 },
+          content: slide.slideTitle,
+          style: { color: palette.textPrimary, fontSize: '46px', fontWeight: '900', fontFamily: 'Space Grotesk, sans-serif', lineHeight: '1.1', zIndex: 3 },
+        },
+        {
+          type: 'text',
+          position: { x: 90, y: 315 },
+          size: { width: 820, height: 90 },
+          content: slide.slideSubtitle,
+          style: { color: palette.textSecondary, fontSize: '20px', lineHeight: '1.5', fontFamily: 'Inter, sans-serif', zIndex: 3 },
+        },
+        {
+          type: 'shape',
+          position: { x: 90, y: 430 },
+          size: { width: 820, height: 380 },
+          style: { backgroundColor: palette.canvasBg, borderRadius: '20px', borderWidth: '1px', borderStyle: 'solid', borderColor: 'rgba(148,163,184,0.2)', zIndex: 2 },
+        },
+        {
+          type: 'text',
+          position: { x: 130, y: 465 },
+          size: { width: 740, height: 310 },
+          content: (slide.bulletPoints || []).map((b) => `• ${b}`).join('\n\n'),
+          style: { color: palette.textPrimary, fontSize: '19px', lineHeight: '1.7', fontFamily: 'Inter, sans-serif', zIndex: 3 },
+        },
+        {
+          type: 'text',
+          position: { x: 90, y: 860 },
+          size: { width: 820, height: 35 },
+          content: plan.footerNote || `${plan.mainTitle} • Swipe for more →`,
+          style: { color: accent, fontSize: '15px', fontWeight: '700', textAlign: 'right', fontFamily: 'Space Grotesk, sans-serif', zIndex: 3 },
+        },
+      ];
+
+      return {
+        id: `slide_${sIdx + 1}`,
+        title: `Slide ${sIdx + 1}: ${slide.slideTitle.substring(0, 24)}`,
+        elements: slideElements,
+        canvasBackgroundColor: palette.canvasBg,
+      };
+    });
+
+    return [
       {
-        type: 'shape',
-        position: { x: 50, y: 50 },
-        size: { width: 900, height: 900 },
-        style: { backgroundColor: '#0B0F19', borderRadius: '24px', border: '1px solid #1E293B', zIndex: 1 },
-      },
-      {
-        type: 'shape',
-        position: { x: 90, y: 90 },
-        size: { width: 220, height: 44 },
-        style: { backgroundColor: '#3B82F6', borderRadius: '9999px', zIndex: 2 },
-      },
-      {
-        type: 'text',
-        position: { x: 90, y: 98 },
-        size: { width: 220, height: 35 },
-        content: 'SLIDE DECK • 1 OF 4',
-        style: { color: '#FFFFFF', fontSize: '13px', fontWeight: '800', textAlign: 'center', fontFamily: 'Space Grotesk, sans-serif', letterSpacing: '2px', zIndex: 3 },
-      },
-      {
-        type: 'text',
-        position: { x: 90, y: 220 },
-        size: { width: 820, height: 160 },
-        content: 'HOW TO ARCHITECT FOR 1M USERS',
-        style: { color: '#38BDF8', fontSize: '56px', fontWeight: '900', fontFamily: 'Space Grotesk, sans-serif', lineHeight: '1.05', letterSpacing: '-1px', zIndex: 3 },
-      },
-      {
-        type: 'text',
-        position: { x: 90, y: 410 },
-        size: { width: 800, height: 90 },
-        content: 'A practical, engineering-first guide to decoupling bottlenecks, scaling databases, and designing resilient distributed cloud services.',
-        style: { color: '#94A3B8', fontSize: '20px', lineHeight: '1.6', fontFamily: 'Inter, sans-serif', zIndex: 3 },
-      },
-      {
-        type: 'shape',
-        position: { x: 90, y: 550 },
-        size: { width: 820, height: 240 },
-        style: { backgroundColor: '#111827', borderRadius: '20px', border: '1px solid #374151', zIndex: 2 },
-      },
-      {
-        type: 'text',
-        position: { x: 130, y: 580 },
-        size: { width: 740, height: 160 },
-        content: '• What breaks first when your traffic 10x-es\n• Why vertical scaling fails after 50k RPS\n• The 3 architectural patterns that solve 90% of outages\n• Concrete migration steps without downtime',
-        style: { color: '#F1F5F9', fontSize: '18px', lineHeight: '2.0', fontFamily: 'Inter, sans-serif', zIndex: 3 },
-      },
-      {
-        type: 'shape',
-        position: { x: 90, y: 830 },
-        size: { width: 260, height: 50 },
-        style: { backgroundColor: '#10B981', borderRadius: '12px', zIndex: 2 },
-      },
-      {
-        type: 'text',
-        position: { x: 90, y: 842 },
-        size: { width: 260, height: 35 },
-        content: 'SWIPE TO READ →',
-        style: { color: '#FFFFFF', fontSize: '15px', fontWeight: '800', textAlign: 'center', fontFamily: 'Space Grotesk, sans-serif', letterSpacing: '1px', zIndex: 3 },
+        description: `${plan.mainTitle} (${pages.length}-Slide Custom Carousel)`,
+        canvasBackgroundColor: palette.canvasBg,
+        elements: pages[0].elements,
+        pages,
+        activePageIndex: 0,
       },
     ];
+  }
 
-    const slide2Elements: any[] = [
-      {
-        type: 'shape',
-        position: { x: 50, y: 50 },
-        size: { width: 900, height: 900 },
-        style: { backgroundColor: '#0B0F19', borderRadius: '24px', border: '1px solid #1E293B', zIndex: 1 },
-      },
-      {
-        type: 'text',
-        position: { x: 80, y: 80 },
-        size: { width: 300, height: 30 },
-        content: 'SLIDE 2 OF 4 • THE PROBLEM',
-        style: { color: '#F43F5E', fontSize: '14px', fontWeight: '800', fontFamily: 'Space Grotesk, sans-serif', letterSpacing: '2px', zIndex: 3 },
-      },
-      {
-        type: 'text',
-        position: { x: 80, y: 120 },
-        size: { width: 840, height: 70 },
-        content: 'THE 3 CRITICAL BOTTLENECKS',
-        style: { color: '#FFFFFF', fontSize: '42px', fontWeight: '900', fontFamily: 'Space Grotesk, sans-serif', zIndex: 3 },
-      },
-      {
-        type: 'shape',
-        position: { x: 80, y: 220 },
-        size: { width: 840, height: 180 },
-        style: { backgroundColor: '#1E293B', borderRadius: '16px', border: '1px solid #F43F5E', zIndex: 2 },
-      },
-      {
-        type: 'text',
-        position: { x: 120, y: 245 },
-        size: { width: 760, height: 35 },
-        content: '1. DATABASE CONNECTION POOL EXHAUSTION',
-        style: { color: '#FDA4AF', fontSize: '20px', fontWeight: '800', fontFamily: 'Space Grotesk, sans-serif', zIndex: 3 },
-      },
-      {
-        type: 'text',
-        position: { x: 120, y: 290 },
-        size: { width: 760, height: 80 },
-        content: 'Direct database connections from hundreds of containers immediately saturate max connections, causing thread locking and 504 timeouts.',
-        style: { color: '#E2E8F0', fontSize: '16px', lineHeight: '1.5', fontFamily: 'Inter, sans-serif', zIndex: 3 },
-      },
-      {
-        type: 'shape',
-        position: { x: 80, y: 430 },
-        size: { width: 840, height: 180 },
-        style: { backgroundColor: '#1E293B', borderRadius: '16px', border: '1px solid #F59E0B', zIndex: 2 },
-      },
-      {
-        type: 'text',
-        position: { x: 120, y: 455 },
-        size: { width: 760, height: 35 },
-        content: '2. SYNCHRONOUS CASCADING DEPENDENCIES',
-        style: { color: '#FCD34D', fontSize: '20px', fontWeight: '800', fontFamily: 'Space Grotesk, sans-serif', zIndex: 3 },
-      },
-      {
-        type: 'text',
-        position: { x: 120, y: 500 },
-        size: { width: 760, height: 80 },
-        content: 'When Service A waits synchronously on Service B & C, a 200ms latency degradation in one downstream third-party locks up the entire web tier.',
-        style: { color: '#E2E8F0', fontSize: '16px', lineHeight: '1.5', fontFamily: 'Inter, sans-serif', zIndex: 3 },
-      },
-      {
-        type: 'shape',
-        position: { x: 80, y: 640 },
-        size: { width: 840, height: 180 },
-        style: { backgroundColor: '#1E293B', borderRadius: '16px', border: '1px solid #8B5CF6', zIndex: 2 },
-      },
-      {
-        type: 'text',
-        position: { x: 120, y: 665 },
-        size: { width: 760, height: 35 },
-        content: '3. UNCACHED HOT QUERY RE-EXECUTION',
-        style: { color: '#C4B5FD', fontSize: '20px', fontWeight: '800', fontFamily: 'Space Grotesk, sans-serif', zIndex: 3 },
-      },
-      {
-        type: 'text',
-        position: { x: 120, y: 710 },
-        size: { width: 760, height: 80 },
-        content: 'Executing complex relational aggregations repeatedly for identical user feeds wastes 95% of database CPU cycles.',
-        style: { color: '#E2E8F0', fontSize: '16px', lineHeight: '1.5', fontFamily: 'Inter, sans-serif', zIndex: 3 },
-      },
-    ];
+  // 2. Build Layout Variation A: Vertical Step-by-Step Guide / Roadmap Infographic
+  const roadmapElements: any[] = [
+    // Header Container
+    {
+      type: 'shape',
+      position: { x: 50, y: 35 },
+      size: { width: 900, height: 115 },
+      style: { backgroundColor: palette.cardBg, borderRadius: '18px', borderWidth: '2px', borderStyle: 'solid', borderColor: palette.accents[0], zIndex: 1 },
+    },
+    {
+      type: 'text',
+      position: { x: 80, y: 50 },
+      size: { width: 840, height: 46 },
+      content: plan.mainTitle.toUpperCase(),
+      style: { color: palette.accents[0], fontSize: '34px', fontWeight: '900', fontFamily: 'Space Grotesk, sans-serif', letterSpacing: '0.5px', zIndex: 3 },
+    },
+    {
+      type: 'text',
+      position: { x: 80, y: 100 },
+      size: { width: 840, height: 34 },
+      content: plan.subtitle,
+      style: { color: palette.textSecondary, fontSize: '15px', fontFamily: 'Inter, sans-serif', zIndex: 3 },
+    },
+  ];
 
-    const slide3Elements: any[] = [
-      {
-        type: 'shape',
-        position: { x: 50, y: 50 },
-        size: { width: 900, height: 900 },
-        style: { backgroundColor: '#0B0F19', borderRadius: '24px', border: '1px solid #1E293B', zIndex: 1 },
-      },
-      {
-        type: 'text',
-        position: { x: 80, y: 80 },
-        size: { width: 300, height: 30 },
-        content: 'SLIDE 3 OF 4 • THE ARCHITECTURE',
-        style: { color: '#10B981', fontSize: '14px', fontWeight: '800', fontFamily: 'Space Grotesk, sans-serif', letterSpacing: '2px', zIndex: 3 },
-      },
-      {
-        type: 'text',
-        position: { x: 80, y: 120 },
-        size: { width: 840, height: 70 },
-        content: 'THE DISTRIBUTED SOLUTION',
-        style: { color: '#FFFFFF', fontSize: '42px', fontWeight: '900', fontFamily: 'Space Grotesk, sans-serif', zIndex: 3 },
-      },
-      {
-        type: 'shape',
-        position: { x: 80, y: 220 },
-        size: { width: 840, height: 180 },
-        style: { backgroundColor: '#1E293B', borderRadius: '16px', border: '1px solid #10B981', zIndex: 2 },
-      },
-      {
-        type: 'text',
-        position: { x: 120, y: 245 },
-        size: { width: 760, height: 35 },
-        content: 'LAYER 1: EDGE CDN & CLUSTERED CACHE',
-        style: { color: '#6EE7B7', fontSize: '20px', fontWeight: '800', fontFamily: 'Space Grotesk, sans-serif', zIndex: 3 },
-      },
-      {
-        type: 'text',
-        position: { x: 120, y: 290 },
-        size: { width: 760, height: 80 },
-        content: 'Push static assets and semi-static API responses to edge locations. Use Redis Cluster with sub-millisecond cache hits for 90% of reads.',
-        style: { color: '#E2E8F0', fontSize: '16px', lineHeight: '1.5', fontFamily: 'Inter, sans-serif', zIndex: 3 },
-      },
-      {
-        type: 'shape',
-        position: { x: 80, y: 430 },
-        size: { width: 840, height: 180 },
-        style: { backgroundColor: '#1E293B', borderRadius: '16px', border: '1px solid #3B82F6', zIndex: 2 },
-      },
-      {
-        type: 'text',
-        position: { x: 120, y: 455 },
-        size: { width: 760, height: 35 },
-        content: 'LAYER 2: ASYNC MESSAGE QUEUES (KAFKA / SQS)',
-        style: { color: '#93C5FD', fontSize: '20px', fontWeight: '800', fontFamily: 'Space Grotesk, sans-serif', zIndex: 3 },
-      },
-      {
-        type: 'text',
-        position: { x: 120, y: 500 },
-        size: { width: 760, height: 80 },
-        content: 'Convert all non-blocking operations (emails, analytics, webhooks) to background events. Decouple ingress traffic from processing time.',
-        style: { color: '#E2E8F0', fontSize: '16px', lineHeight: '1.5', fontFamily: 'Inter, sans-serif', zIndex: 3 },
-      },
-      {
-        type: 'shape',
-        position: { x: 80, y: 640 },
-        size: { width: 840, height: 180 },
-        style: { backgroundColor: '#1E293B', borderRadius: '16px', border: '1px solid #EC4899', zIndex: 2 },
-      },
-      {
-        type: 'text',
-        position: { x: 120, y: 665 },
-        size: { width: 760, height: 35 },
-        content: 'LAYER 3: DB CONNECTION PROXY & READ REPLICAS',
-        style: { color: '#F9A8D4', fontSize: '20px', fontWeight: '800', fontFamily: 'Space Grotesk, sans-serif', zIndex: 3 },
-      },
-      {
-        type: 'text',
-        position: { x: 120, y: 710 },
-        size: { width: 760, height: 80 },
-        content: 'Deploy connection pooling (PgBouncer / AWS RDS Proxy). Route 100% of read traffic to horizontal replicas.',
-        style: { color: '#E2E8F0', fontSize: '16px', lineHeight: '1.5', fontFamily: 'Inter, sans-serif', zIndex: 3 },
-      },
-    ];
+  const cardHeight = steps.length === 5 ? 132 : 165;
+  const cardGap = steps.length === 5 ? 146 : 182;
 
-    const slide4Elements: any[] = [
+  steps.forEach((step, idx) => {
+    const yPos = 172 + idx * cardGap;
+    const accent = palette.accents[idx % palette.accents.length];
+
+    roadmapElements.push(
       {
         type: 'shape',
-        position: { x: 50, y: 50 },
-        size: { width: 900, height: 900 },
-        style: { backgroundColor: '#0B0F19', borderRadius: '24px', border: '1px solid #1E293B', zIndex: 1 },
-      },
-      {
-        type: 'text',
-        position: { x: 80, y: 80 },
-        size: { width: 300, height: 30 },
-        content: 'SLIDE 4 OF 4 • TAKEAWAYS',
-        style: { color: '#F59E0B', fontSize: '14px', fontWeight: '800', fontFamily: 'Space Grotesk, sans-serif', letterSpacing: '2px', zIndex: 3 },
-      },
-      {
-        type: 'text',
-        position: { x: 80, y: 120 },
-        size: { width: 840, height: 70 },
-        content: 'SUMMARY & ACTION CHECKLIST',
-        style: { color: '#FFFFFF', fontSize: '42px', fontWeight: '900', fontFamily: 'Space Grotesk, sans-serif', zIndex: 3 },
+        position: { x: 50, y: yPos },
+        size: { width: 900, height: cardHeight },
+        style: { backgroundColor: palette.cardBg, borderRadius: '16px', borderWidth: '1.5px', borderStyle: 'solid', borderColor: accent, zIndex: 1 },
       },
       {
         type: 'shape',
-        position: { x: 80, y: 220 },
-        size: { width: 840, height: 440 },
-        style: { backgroundColor: '#111827', borderRadius: '20px', border: '1px solid #374151', zIndex: 2 },
+        position: { x: 75, y: yPos + 20 },
+        size: { width: 52, height: 52 },
+        style: { backgroundColor: accent, borderRadius: '12px', zIndex: 2 },
       },
       {
         type: 'text',
-        position: { x: 120, y: 260 },
-        size: { width: 760, height: 350 },
-        content: '✅ 1. Implement Redis Cache-Aside on all high-traffic endpoints\n\n✅ 2. Place PgBouncer / RDS Proxy between containers & DB\n\n✅ 3. Convert email, notifications, and webhooks to SQS / Kafka\n\n✅ 4. Enable aggressive TTL edge caching on CDN\n\n✅ 5. Benchmark with k6 load testing up to 100k virtual users',
-        style: { color: '#F8FAFC', fontSize: '20px', lineHeight: '1.9', fontFamily: 'Inter, sans-serif', fontWeight: '500', zIndex: 3 },
-      },
-      {
-        type: 'shape',
-        position: { x: 80, y: 710 },
-        size: { width: 840, height: 100 },
-        style: { backgroundColor: '#3B82F6', borderRadius: '16px', zIndex: 2 },
-      },
-      {
-        type: 'text',
-        position: { x: 100, y: 730 },
-        size: { width: 800, height: 35 },
-        content: '📌 SAVE THIS CAROUSEL FOR YOUR NEXT ARCHITECTURE REVIEW',
+        position: { x: 75, y: yPos + 31 },
+        size: { width: 52, height: 30 },
+        content: step.stepNumber || `0${idx + 1}`,
         style: { color: '#FFFFFF', fontSize: '20px', fontWeight: '800', textAlign: 'center', fontFamily: 'Space Grotesk, sans-serif', zIndex: 3 },
       },
       {
         type: 'text',
-        position: { x: 100, y: 768 },
-        size: { width: 800, height: 30 },
-        content: 'Follow for weekly deep-dives into distributed systems & high-throughput cloud engineering.',
-        style: { color: '#DBEAFE', fontSize: '14px', textAlign: 'center', fontFamily: 'Inter, sans-serif', zIndex: 3 },
+        position: { x: 145, y: yPos + 16 },
+        size: { width: 780, height: 32 },
+        content: step.heading.toUpperCase(),
+        style: { color: accent, fontSize: '18px', fontWeight: '800', fontFamily: 'Space Grotesk, sans-serif', zIndex: 2 },
       },
-    ];
-
-    const carouselPages = [
-      { id: crypto.randomUUID(), title: 'Slide 1: Hook / Intro', elements: slide1Elements, canvasBackgroundColor: '#0B0F19' },
-      { id: crypto.randomUUID(), title: 'Slide 2: Bottlenecks', elements: slide2Elements, canvasBackgroundColor: '#0B0F19' },
-      { id: crypto.randomUUID(), title: 'Slide 3: Architecture', elements: slide3Elements, canvasBackgroundColor: '#0B0F19' },
-      { id: crypto.randomUUID(), title: 'Slide 4: Action Checklist', elements: slide4Elements, canvasBackgroundColor: '#0B0F19' },
-    ];
-
-    return {
-      layouts: [
-        {
-          description: 'Multi-Slide Carousel: Scaling Distributed Cloud Architecture (4 Slides)',
-          canvasBackgroundColor: '#0B0F19',
-          elements: slide1Elements,
-          pages: carouselPages,
-          activePageIndex: 0,
-        },
-      ],
-    };
-  }
-
-  const isRoadmapOrInfographic =
-    p.includes('roadmap') ||
-    p.includes('infographic') ||
-    p.includes('cloud') ||
-    p.includes('learn') ||
-    p.includes('guide') ||
-    p.includes('step') ||
-    p.includes('path') ||
-    p.includes('timeline');
-
-  // If the user requested a Roadmap or Infographic (like Cloud Computing Roadmap)
-  if (isRoadmapOrInfographic) {
-    return {
-      layouts: [
-        {
-          description: 'Cloud Computing Mastery Roadmap (Infographic Steps)',
-          canvasBackgroundColor: '#0B0F19',
-          elements: [
-            // Header Card
-            {
-              type: 'shape',
-              position: { x: 50, y: 40 },
-              size: { width: 900, height: 110 },
-              style: { backgroundColor: '#111827', borderRadius: '16px', border: '1px solid #1E293B', zIndex: 1 },
-            },
-            {
-              type: 'text',
-              position: { x: 80, y: 55 },
-              size: { width: 840, height: 42 },
-              content: 'CLOUD COMPUTING ROADMAP 2026',
-              style: { color: '#38BDF8', fontSize: '36px', fontWeight: '900', fontFamily: 'Space Grotesk, sans-serif', letterSpacing: '1px', zIndex: 3 },
-            },
-            {
-              type: 'text',
-              position: { x: 80, y: 102 },
-              size: { width: 840, height: 30 },
-              content: 'Complete step-by-step learning guide from IT fundamentals to Multi-Cloud Solutions Architect',
-              style: { color: '#94A3B8', fontSize: '15px', fontFamily: 'Inter, sans-serif', zIndex: 3 },
-            },
-
-            // Step 1: Fundamentals
-            {
-              type: 'shape',
-              position: { x: 50, y: 175 },
-              size: { width: 900, height: 125 },
-              style: { backgroundColor: '#1E293B', borderRadius: '16px', border: '1px solid #3B82F6', zIndex: 1 },
-            },
-            {
-              type: 'shape',
-              position: { x: 75, y: 195 },
-              size: { width: 50, height: 50 },
-              style: { backgroundColor: '#3B82F6', borderRadius: '12px', zIndex: 2 },
-            },
-            {
-              type: 'text',
-              position: { x: 75, y: 205 },
-              size: { width: 50, height: 30 },
-              content: '01',
-              style: { color: '#FFFFFF', fontSize: '20px', fontWeight: '800', textAlign: 'center', fontFamily: 'Space Grotesk, sans-serif', zIndex: 3 },
-            },
-            {
-              type: 'text',
-              position: { x: 145, y: 190 },
-              size: { width: 780, height: 32 },
-              content: 'STAGE 1: IT & NETWORKING FUNDAMENTALS',
-              style: { color: '#60A5FA', fontSize: '18px', fontWeight: '700', fontFamily: 'Space Grotesk, sans-serif', zIndex: 2 },
-            },
-            {
-              type: 'text',
-              position: { x: 145, y: 226 },
-              size: { width: 780, height: 55 },
-              content: 'TCP/IP, DNS, Subnets, OSI Model • Linux CLI & Bash Scripting • Git Version Control • Virtualization basics',
-              style: { color: '#E2E8F0', fontSize: '14px', lineHeight: '1.4', fontFamily: 'Inter, sans-serif', zIndex: 2 },
-            },
-
-            // Step 2: Core Cloud Services
-            {
-              type: 'shape',
-              position: { x: 50, y: 320 },
-              size: { width: 900, height: 125 },
-              style: { backgroundColor: '#1E293B', borderRadius: '16px', border: '1px solid #10B981', zIndex: 1 },
-            },
-            {
-              type: 'shape',
-              position: { x: 75, y: 340 },
-              size: { width: 50, height: 50 },
-              style: { backgroundColor: '#10B981', borderRadius: '12px', zIndex: 2 },
-            },
-            {
-              type: 'text',
-              position: { x: 75, y: 350 },
-              size: { width: 50, height: 30 },
-              content: '02',
-              style: { color: '#FFFFFF', fontSize: '20px', fontWeight: '800', textAlign: 'center', fontFamily: 'Space Grotesk, sans-serif', zIndex: 3 },
-            },
-            {
-              type: 'text',
-              position: { x: 145, y: 335 },
-              size: { width: 780, height: 32 },
-              content: 'STAGE 2: CORE CLOUD PROVIDER SERVICES (AWS / GCP / AZURE)',
-              style: { color: '#34D399', fontSize: '18px', fontWeight: '700', fontFamily: 'Space Grotesk, sans-serif', zIndex: 2 },
-            },
-            {
-              type: 'text',
-              position: { x: 145, y: 371 },
-              size: { width: 780, height: 55 },
-              content: 'Compute (EC2, VMs, Lambda) • Storage (S3, Blob, Block Store) • Identity & Access (IAM, Roles) • Virtual Private Clouds (VPC, Security Groups)',
-              style: { color: '#E2E8F0', fontSize: '14px', lineHeight: '1.4', fontFamily: 'Inter, sans-serif', zIndex: 2 },
-            },
-
-            // Step 3: Infrastructure as Code & Automation
-            {
-              type: 'shape',
-              position: { x: 50, y: 465 },
-              size: { width: 900, height: 125 },
-              style: { backgroundColor: '#1E293B', borderRadius: '16px', border: '1px solid #F59E0B', zIndex: 1 },
-            },
-            {
-              type: 'shape',
-              position: { x: 75, y: 485 },
-              size: { width: 50, height: 50 },
-              style: { backgroundColor: '#F59E0B', borderRadius: '12px', zIndex: 2 },
-            },
-            {
-              type: 'text',
-              position: { x: 75, y: 495 },
-              size: { width: 50, height: 30 },
-              content: '03',
-              style: { color: '#FFFFFF', fontSize: '20px', fontWeight: '800', textAlign: 'center', fontFamily: 'Space Grotesk, sans-serif', zIndex: 3 },
-            },
-            {
-              type: 'text',
-              position: { x: 145, y: 480 },
-              size: { width: 780, height: 32 },
-              content: 'STAGE 3: INFRASTRUCTURE AS CODE & CI/CD',
-              style: { color: '#FBBF24', fontSize: '18px', fontWeight: '700', fontFamily: 'Space Grotesk, sans-serif', zIndex: 2 },
-            },
-            {
-              type: 'text',
-              position: { x: 145, y: 516 },
-              size: { width: 780, height: 55 },
-              content: 'Terraform & OpenTofu • GitHub Actions & GitLab CI • Ansible configuration • CloudFormation / Bicep automated deployments',
-              style: { color: '#E2E8F0', fontSize: '14px', lineHeight: '1.4', fontFamily: 'Inter, sans-serif', zIndex: 2 },
-            },
-
-            // Step 4: Containers & Kubernetes
-            {
-              type: 'shape',
-              position: { x: 50, y: 610 },
-              size: { width: 900, height: 125 },
-              style: { backgroundColor: '#1E293B', borderRadius: '16px', border: '1px solid #EC4899', zIndex: 1 },
-            },
-            {
-              type: 'shape',
-              position: { x: 75, y: 630 },
-              size: { width: 50, height: 50 },
-              style: { backgroundColor: '#EC4899', borderRadius: '12px', zIndex: 2 },
-            },
-            {
-              type: 'text',
-              position: { x: 75, y: 640 },
-              size: { width: 50, height: 30 },
-              content: '04',
-              style: { color: '#FFFFFF', fontSize: '20px', fontWeight: '800', textAlign: 'center', fontFamily: 'Space Grotesk, sans-serif', zIndex: 3 },
-            },
-            {
-              type: 'text',
-              position: { x: 145, y: 625 },
-              size: { width: 780, height: 32 },
-              content: 'STAGE 4: CONTAINERS, KUBERNETES & MICROSERVICES',
-              style: { color: '#F472B6', fontSize: '18px', fontWeight: '700', fontFamily: 'Space Grotesk, sans-serif', zIndex: 2 },
-            },
-            {
-              type: 'text',
-              position: { x: 145, y: 661 },
-              size: { width: 780, height: 55 },
-              content: 'Docker image packaging • Kubernetes (EKS / GKE / AKS) • Ingress controllers, Helm charts, Pod networking • Service mesh & observability',
-              style: { color: '#E2E8F0', fontSize: '14px', lineHeight: '1.4', fontFamily: 'Inter, sans-serif', zIndex: 2 },
-            },
-
-            // Step 5: Architecture & Security
-            {
-              type: 'shape',
-              position: { x: 50, y: 755 },
-              size: { width: 900, height: 125 },
-              style: { backgroundColor: '#1E293B', borderRadius: '16px', border: '1px solid #8B5CF6', zIndex: 1 },
-            },
-            {
-              type: 'shape',
-              position: { x: 75, y: 775 },
-              size: { width: 50, height: 50 },
-              style: { backgroundColor: '#8B5CF6', borderRadius: '12px', zIndex: 2 },
-            },
-            {
-              type: 'text',
-              position: { x: 75, y: 785 },
-              size: { width: 50, height: 30 },
-              content: '05',
-              style: { color: '#FFFFFF', fontSize: '20px', fontWeight: '800', textAlign: 'center', fontFamily: 'Space Grotesk, sans-serif', zIndex: 3 },
-            },
-            {
-              type: 'text',
-              position: { x: 145, y: 770 },
-              size: { width: 780, height: 32 },
-              content: 'STAGE 5: HIGH AVAILABILITY, SECURITY & FINOPS',
-              style: { color: '#A78BFA', fontSize: '18px', fontWeight: '700', fontFamily: 'Space Grotesk, sans-serif', zIndex: 2 },
-            },
-            {
-              type: 'text',
-              position: { x: 145, y: 806 },
-              size: { width: 780, height: 55 },
-              content: 'Multi-Region disaster recovery • Zero Trust architecture & encryption • Cloud FinOps cost optimization • Prometheus & Datadog monitoring',
-              style: { color: '#E2E8F0', fontSize: '14px', lineHeight: '1.4', fontFamily: 'Inter, sans-serif', zIndex: 2 },
-            },
-
-            // Footer note
-            {
-              type: 'text',
-              position: { x: 50, y: 910 },
-              size: { width: 900, height: 35 },
-              content: 'RECOMMENDED CERTS: AWS Solutions Architect • CKA (Certified Kubernetes Admin) • HashiCorp Terraform Associate',
-              style: { color: '#64748B', fontSize: '13px', fontWeight: '600', textAlign: 'center', fontFamily: 'Space Grotesk, sans-serif', zIndex: 2 },
-            },
-          ],
-        },
-        {
-          description: 'Modular Cloud Architecture Pillars (4-Quadrant Infographic)',
-          canvasBackgroundColor: '#F8FAFC',
-          elements: [
-            // Title Header
-            {
-              type: 'text',
-              position: { x: 60, y: 60 },
-              size: { width: 880, height: 50 },
-              content: 'THE 4 PILLARS OF CLOUD ARCHITECTURE',
-              style: { color: '#0F172A', fontSize: '38px', fontWeight: '900', textAlign: 'center', fontFamily: 'Space Grotesk, sans-serif', zIndex: 3 },
-            },
-            {
-              type: 'text',
-              position: { x: 60, y: 120 },
-              size: { width: 880, height: 30 },
-              content: 'Engineering principles for reliable, scalable, and resilient distributed systems',
-              style: { color: '#64748B', fontSize: '16px', textAlign: 'center', fontFamily: 'Inter, sans-serif', zIndex: 3 },
-            },
-
-            // Quadrant 1: Security & Compliance
-            {
-              type: 'shape',
-              position: { x: 60, y: 180 },
-              size: { width: 425, height: 340 },
-              style: { backgroundColor: '#FFFFFF', borderRadius: '20px', border: '2px solid #3B82F6', zIndex: 1 },
-            },
-            {
-              type: 'text',
-              position: { x: 90, y: 210 },
-              size: { width: 365, height: 35 },
-              content: '01. SECURITY & IDENTITY',
-              style: { color: '#2563EB', fontSize: '20px', fontWeight: '800', fontFamily: 'Space Grotesk, sans-serif', zIndex: 2 },
-            },
-            {
-              type: 'text',
-              position: { x: 90, y: 260 },
-              size: { width: 365, height: 220 },
-              content: '• Principle of Least Privilege (IAM)\n• Data encryption at rest and in transit\n• Automated secret rotation (Vault/KMS)\n• Network isolation & private subnets\n• Real-time threat detection (GuardDuty)',
-              style: { color: '#334155', fontSize: '15px', lineHeight: '1.7', fontFamily: 'Inter, sans-serif', zIndex: 2 },
-            },
-
-            // Quadrant 2: Reliability & Scaling
-            {
-              type: 'shape',
-              position: { x: 515, y: 180 },
-              size: { width: 425, height: 340 },
-              style: { backgroundColor: '#FFFFFF', borderRadius: '20px', border: '2px solid #10B981', zIndex: 1 },
-            },
-            {
-              type: 'text',
-              position: { x: 545, y: 210 },
-              size: { width: 365, height: 35 },
-              content: '02. RELIABILITY & RESILIENCE',
-              style: { color: '#059669', fontSize: '20px', fontWeight: '800', fontFamily: 'Space Grotesk, sans-serif', zIndex: 2 },
-            },
-            {
-              type: 'text',
-              position: { x: 545, y: 260 },
-              size: { width: 365, height: 220 },
-              content: '• Multi-AZ auto-scaling groups\n• Circuit breaker & retry patterns\n• Automated backups & RPO/RTO goals\n• Chaos engineering validation\n• Global traffic failover (DNS routing)',
-              style: { color: '#334155', fontSize: '15px', lineHeight: '1.7', fontFamily: 'Inter, sans-serif', zIndex: 2 },
-            },
-
-            // Quadrant 3: Performance & Efficiency
-            {
-              type: 'shape',
-              position: { x: 60, y: 550 },
-              size: { width: 425, height: 340 },
-              style: { backgroundColor: '#FFFFFF', borderRadius: '20px', border: '2px solid #F59E0B', zIndex: 1 },
-            },
-            {
-              type: 'text',
-              position: { x: 90, y: 580 },
-              size: { width: 365, height: 35 },
-              content: '03. PERFORMANCE & CACHING',
-              style: { color: '#D97706', fontSize: '20px', fontWeight: '800', fontFamily: 'Space Grotesk, sans-serif', zIndex: 2 },
-            },
-            {
-              type: 'text',
-              position: { x: 90, y: 630 },
-              size: { width: 365, height: 220 },
-              content: '• Edge caching via CloudFront / CDN\n• Redis distributed in-memory cache\n• Serverless event-driven compute\n• Read replicas for relational databases\n• Asynchronous message queuing (SQS/Kafka)',
-              style: { color: '#334155', fontSize: '15px', lineHeight: '1.7', fontFamily: 'Inter, sans-serif', zIndex: 2 },
-            },
-
-            // Quadrant 4: Cost Optimization & FinOps
-            {
-              type: 'shape',
-              position: { x: 515, y: 550 },
-              size: { width: 425, height: 340 },
-              style: { backgroundColor: '#FFFFFF', borderRadius: '20px', border: '2px solid #8B5CF6', zIndex: 1 },
-            },
-            {
-              type: 'text',
-              position: { x: 545, y: 580 },
-              size: { width: 365, height: 35 },
-              content: '04. COST & FINOPS',
-              style: { color: '#7C3AED', fontSize: '20px', fontWeight: '800', fontFamily: 'Space Grotesk, sans-serif', zIndex: 2 },
-            },
-            {
-              type: 'text',
-              position: { x: 545, y: 630 },
-              size: { width: 365, height: 220 },
-              content: '• Spot instances for batch workloads\n• Reserved instances / Savings Plans\n• S3 lifecycle rules & Glacier archiving\n• Automated resource tagging & budgets\n• Idle resource auto-shutdown',
-              style: { color: '#334155', fontSize: '15px', lineHeight: '1.7', fontFamily: 'Inter, sans-serif', zIndex: 2 },
-            },
-
-            // Footer
-            {
-              type: 'text',
-              position: { x: 60, y: 920 },
-              size: { width: 880, height: 30 },
-              content: 'Architected with AWS & Cloud Native Computing Foundation (CNCF) standards',
-              style: { color: '#94A3B8', fontSize: '14px', textAlign: 'center', fontFamily: 'Inter, sans-serif', zIndex: 2 },
-            },
-          ],
-        },
-      ],
-    };
-  }
-
-  // Default Promotional / Creative visual layout
-  const headline = prompt.length > 40 ? prompt.substring(0, 37) + '...' : prompt;
-  return {
-    layouts: [
       {
-        description: `Modern Showcase: ${headline}`,
-        canvasBackgroundColor: '#0F172A',
-        elements: [
-          {
-            type: 'shape',
-            position: { x: 50, y: 50 },
-            size: { width: 900, height: 900 },
-            style: { backgroundColor: '#1E293B', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.1)', zIndex: 1 },
+        type: 'text',
+        position: { x: 145, y: yPos + 52 },
+        size: { width: 780, height: cardHeight - 62 },
+        content: step.details,
+        style: { color: palette.textPrimary, fontSize: '14px', lineHeight: '1.45', fontFamily: 'Inter, sans-serif', zIndex: 2 },
+      }
+    );
+  });
+
+  // Footer
+  roadmapElements.push({
+    type: 'text',
+    position: { x: 50, y: 920 },
+    size: { width: 900, height: 30 },
+    content: plan.footerNote,
+    style: { color: palette.textSecondary, fontSize: '13px', fontWeight: '600', textAlign: 'center', fontFamily: 'Space Grotesk, sans-serif', zIndex: 2 },
+  });
+
+  // 3. Build Layout Variation B: 4-Quadrant Bento Grid OR Visual Hero Poster (with Nano Banana image!)
+  const secondLayoutElements: any[] = [];
+
+  if (isPoster || generatedImageUrl) {
+    // Visual Hero Layout featuring the AI-generated Nano Banana Image + Key Steps
+    secondLayoutElements.push(
+      {
+        type: 'shape',
+        position: { x: 45, y: 45 },
+        size: { width: 910, height: 910 },
+        style: { backgroundColor: palette.cardBg, borderRadius: '24px', borderWidth: '2px', borderStyle: 'solid', borderColor: palette.accents[0], zIndex: 1 },
+      },
+      {
+        type: 'shape',
+        position: { x: 85, y: 80 },
+        size: { width: 240, height: 40 },
+        style: { backgroundColor: palette.accents[0], borderRadius: '9999px', zIndex: 3 },
+      },
+      {
+        type: 'text',
+        position: { x: 85, y: 88 },
+        size: { width: 240, height: 28 },
+        content: (plan.badgeText || 'CUSTOM AI GRAPHIC').toUpperCase(),
+        style: { color: '#FFFFFF', fontSize: '13px', fontWeight: '800', textAlign: 'center', fontFamily: 'Space Grotesk, sans-serif', letterSpacing: '1.5px', zIndex: 4 },
+      },
+      {
+        type: 'text',
+        position: { x: 85, y: 140 },
+        size: { width: 830, height: 95 },
+        content: plan.mainTitle.toUpperCase(),
+        style: { color: palette.textPrimary, fontSize: '44px', fontWeight: '900', fontFamily: 'Space Grotesk, sans-serif', lineHeight: '1.08', zIndex: 3 },
+      },
+      {
+        type: 'text',
+        position: { x: 85, y: 240 },
+        size: { width: 830, height: 55 },
+        content: plan.subtitle,
+        style: { color: palette.textSecondary, fontSize: '17px', fontFamily: 'Inter, sans-serif', zIndex: 3 },
+      },
+      {
+        type: 'image',
+        position: { x: 85, y: 310 },
+        size: { width: 830, height: 390 },
+        source: visualImg,
+        content: plan.mainTitle,
+        style: { borderRadius: '18px', zIndex: 2 },
+      },
+      // Two bottom summary cards
+      {
+        type: 'shape',
+        position: { x: 85, y: 725 },
+        size: { width: 400, height: 185 },
+        style: { backgroundColor: palette.canvasBg, borderRadius: '16px', borderWidth: '1px', borderStyle: 'solid', borderColor: palette.accents[1], zIndex: 2 },
+      },
+      {
+        type: 'text',
+        position: { x: 110, y: 745 },
+        size: { width: 350, height: 30 },
+        content: steps[0]?.heading || 'Key Highlight 1',
+        style: { color: palette.accents[1], fontSize: '16px', fontWeight: '800', fontFamily: 'Space Grotesk, sans-serif', zIndex: 3 },
+      },
+      {
+        type: 'text',
+        position: { x: 110, y: 780 },
+        size: { width: 350, height: 110 },
+        content: steps[0]?.details || '',
+        style: { color: palette.textPrimary, fontSize: '13px', lineHeight: '1.5', fontFamily: 'Inter, sans-serif', zIndex: 3 },
+      },
+      {
+        type: 'shape',
+        position: { x: 515, y: 725 },
+        size: { width: 400, height: 185 },
+        style: { backgroundColor: palette.canvasBg, borderRadius: '16px', borderWidth: '1px', borderStyle: 'solid', borderColor: palette.accents[2], zIndex: 2 },
+      },
+      {
+        type: 'text',
+        position: { x: 540, y: 745 },
+        size: { width: 350, height: 30 },
+        content: steps[1]?.heading || 'Key Highlight 2',
+        style: { color: palette.accents[2], fontSize: '16px', fontWeight: '800', fontFamily: 'Space Grotesk, sans-serif', zIndex: 3 },
+      },
+      {
+        type: 'text',
+        position: { x: 540, y: 780 },
+        size: { width: 350, height: 110 },
+        content: steps[1]?.details || '',
+        style: { color: palette.textPrimary, fontSize: '13px', lineHeight: '1.5', fontFamily: 'Inter, sans-serif', zIndex: 3 },
+      }
+    );
+  } else {
+    // 4-Quadrant Bento Grid Infographic
+    secondLayoutElements.push(
+      {
+        type: 'text',
+        position: { x: 60, y: 50 },
+        size: { width: 880, height: 50 },
+        content: plan.mainTitle.toUpperCase(),
+        style: { color: palette.textPrimary, fontSize: '36px', fontWeight: '900', textAlign: 'center', fontFamily: 'Space Grotesk, sans-serif', zIndex: 3 },
+      },
+      {
+        type: 'text',
+        position: { x: 60, y: 108 },
+        size: { width: 880, height: 35 },
+        content: plan.subtitle,
+        style: { color: palette.textSecondary, fontSize: '16px', textAlign: 'center', fontFamily: 'Inter, sans-serif', zIndex: 3 },
+      }
+    );
+
+    const quadPositions = [
+      { x: 60, y: 170 },
+      { x: 515, y: 170 },
+      { x: 60, y: 540 },
+      { x: 515, y: 540 },
+    ];
+
+    steps.slice(0, 4).forEach((step, idx) => {
+      const pos = quadPositions[idx];
+      const accent = palette.accents[idx % palette.accents.length];
+      secondLayoutElements.push(
+        {
+          type: 'shape',
+          position: { x: pos.x, y: pos.y },
+          size: { width: 425, height: 340 },
+          style: { backgroundColor: palette.cardBg, borderRadius: '20px', borderWidth: '2px', borderStyle: 'solid', borderColor: accent, zIndex: 1 },
+        },
+        {
+          type: 'text',
+          position: { x: pos.x + 30, y: pos.y + 30 },
+          size: { width: 365, height: 38 },
+          content: `${step.stepNumber || `0${idx + 1}`}. ${step.heading.toUpperCase()}`,
+          style: { color: accent, fontSize: '19px', fontWeight: '800', fontFamily: 'Space Grotesk, sans-serif', zIndex: 2 },
+        },
+        {
+          type: 'text',
+          position: { x: pos.x + 30, y: pos.y + 82 },
+          size: { width: 365, height: 225 },
+          content: step.details,
+          style: { color: palette.textPrimary, fontSize: '15px', lineHeight: '1.65', fontFamily: 'Inter, sans-serif', zIndex: 2 },
+        }
+      );
+    });
+
+    secondLayoutElements.push({
+      type: 'text',
+      position: { x: 60, y: 915 },
+      size: { width: 880, height: 30 },
+      content: plan.footerNote,
+      style: { color: palette.textSecondary, fontSize: '14px', textAlign: 'center', fontFamily: 'Inter, sans-serif', zIndex: 2 },
+    });
+  }
+
+  return [
+    {
+      description: `${plan.mainTitle} — Step-by-Step Roadmap`,
+      canvasBackgroundColor: palette.canvasBg,
+      elements: roadmapElements,
+    },
+    {
+      description: isPoster || generatedImageUrl
+        ? `${plan.mainTitle} — Visual Poster & AI Illustration`
+        : `${plan.mainTitle} — 4-Pillar Bento Grid`,
+      canvasBackgroundColor: palette.canvasBg,
+      elements: secondLayoutElements,
+    },
+  ];
+}
+
+export async function generateAIGraphicsLayouts(
+  options: GenerateDesignLayoutOptions
+): Promise<{ layouts: GeneratedLayoutResult[] }> {
+  const {
+    prompt,
+    style = 'Modern Professional',
+    format = 'auto',
+    apiKey,
+    model,
+    mcpContext,
+    generateImagesWithNanoBanana = false,
+  } = options;
+
+  const ai = getAiClient(apiKey);
+
+  if (!ai) {
+    console.warn('No Gemini API key available, generating dynamic topic layout.');
+    return synthesizeDynamicTopicFallback(prompt, style, format);
+  }
+
+  // Ensure we use a valid, supported Gemini model
+  const validModels = ['gemini-2.5-flash', 'gemini-2.5-pro'];
+  const chosenModel = model && validModels.includes(model) ? model : 'gemini-2.5-flash';
+
+  try {
+    // Run content synthesis and optional Nano Banana image generation in parallel!
+    const contentPromise = ai.models.generateContent({
+      model: chosenModel,
+      contents: `You are an expert technical educator, copywriter, and graphic designer.
+Create a complete, highly specific, accurate educational & visual plan for the following topic:
+Topic / Request: "${prompt}"
+Visual Style: "${style}"
+${mcpContext ? `Connected Tools Context: ${mcpContext}` : ''}
+
+IMPORTANT:
+- Write 100% genuine, domain-accurate, detailed content specifically about "${prompt}".
+- Provide 5 concrete stages/steps in "steps", with specific commands, tools, concepts, or actionable bullet points in "details" (use • bullets separated by newlines where helpful).
+- Also provide 4 carouselSlides in case the user wants a multi-slide deck.`,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            mainTitle: { type: Type.STRING, description: 'Bold headline specifically for this topic (max 45 chars)' },
+            subtitle: { type: Type.STRING, description: 'Clear 1-sentence value proposition or subtitle' },
+            badgeText: { type: Type.STRING, description: 'Short 2-3 word category tag, e.g. PYTHON GUIDE 2026' },
+            footerNote: { type: Type.STRING, description: 'Recommended tools, commands, or summary takeaway' },
+            ctaText: { type: Type.STRING, description: 'Short call to action' },
+            steps: {
+              type: Type.ARRAY,
+              description: 'Exactly 5 sequential steps, phases, or pillars specifically tailored to the prompt',
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  stepNumber: { type: Type.STRING, description: '01, 02, 03, 04, 05' },
+                  heading: { type: Type.STRING, description: 'Stage title specific to the topic' },
+                  details: { type: Type.STRING, description: 'Specific technical details, commands, or actionable points (150-220 chars)' },
+                },
+                required: ['stepNumber', 'heading', 'details'],
+              },
+            },
+            carouselSlides: {
+              type: Type.ARRAY,
+              description: '4 slides for a multi-page carousel on this exact topic',
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  slideBadge: { type: Type.STRING },
+                  slideTitle: { type: Type.STRING },
+                  slideSubtitle: { type: Type.STRING },
+                  bulletPoints: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING },
+                  },
+                },
+                required: ['slideBadge', 'slideTitle', 'slideSubtitle', 'bulletPoints'],
+              },
+            },
           },
-          {
-            type: 'shape',
-            position: { x: 100, y: 100 },
-            size: { width: 220, height: 44 },
-            style: { backgroundColor: '#3B82F6', borderRadius: '9999px', zIndex: 3 },
-          },
-          {
-            type: 'text',
-            position: { x: 100, y: 102 },
-            size: { width: 220, height: 40 },
-            content: 'FEATURED DESIGN',
-            style: { color: '#FFFFFF', fontSize: '14px', fontWeight: '700', textAlign: 'center', fontFamily: 'Inter, sans-serif', letterSpacing: '2px', zIndex: 4 },
-          },
-          {
-            type: 'text',
-            position: { x: 100, y: 170 },
-            size: { width: 800, height: 110 },
-            content: headline.toUpperCase(),
-            style: { color: '#FFFFFF', fontSize: '56px', fontWeight: '800', textAlign: 'left', fontFamily: 'Space Grotesk, sans-serif', lineHeight: '1.1', zIndex: 3 },
-          },
-          {
-            type: 'image',
-            position: { x: 100, y: 310 },
-            size: { width: 800, height: 480 },
-            source: sampleImg,
-            content: prompt,
-            style: { borderRadius: '16px', zIndex: 2 },
-          },
-          {
-            type: 'shape',
-            position: { x: 100, y: 825 },
-            size: { width: 260, height: 56 },
-            style: { backgroundColor: '#F59E0B', borderRadius: '12px', zIndex: 3 },
-          },
-          {
-            type: 'text',
-            position: { x: 100, y: 835 },
-            size: { width: 260, height: 40 },
-            content: 'LEARN MORE →',
-            style: { color: '#000000', fontSize: '16px', fontWeight: '700', textAlign: 'center', fontFamily: 'Space Grotesk, sans-serif', zIndex: 4 },
-          },
-        ],
+          required: ['mainTitle', 'subtitle', 'badgeText', 'footerNote', 'ctaText', 'steps'],
+        },
+      },
+    });
+
+    const imagePromise =
+      generateImagesWithNanoBanana || format === 'poster'
+        ? generateNanoBananaImage(prompt, apiKey)
+        : Promise.resolve(null);
+
+    const [response, generatedImageUrl] = await Promise.all([contentPromise, imagePromise]);
+
+    const text = response.text;
+    if (!text) {
+      throw new Error('Empty response from Gemini');
+    }
+
+    const plan: BespokeStructuredPlan = JSON.parse(text);
+    const layouts = compileBespokePlanToLayouts(plan, prompt, style, format, generatedImageUrl);
+    return { layouts };
+  } catch (error: any) {
+    // If the error was due to an invalid custom key, retry once using the built-in server environment key
+    const isApiKeyError =
+      error?.message?.includes('API key not valid') ||
+      error?.status === 'INVALID_ARGUMENT' ||
+      error?.message?.includes('API_KEY_INVALID');
+
+    if (isApiKeyError && apiKey && (process.env.GEMINI_API_KEY || process.env.GOOGLE_GENAI_API_KEY)) {
+      console.warn('Custom API key was invalid. Retrying with built-in server GEMINI_API_KEY...');
+      try {
+        const retryResult = await generateAIGraphicsLayouts({
+          ...options,
+          apiKey: undefined, // use server default
+        });
+        return retryResult;
+      } catch (retryErr) {
+        console.error('Retry with server key also failed:', retryErr);
+      }
+    }
+
+    console.warn('Gemini call encountered an error. Synthesizing bespoke dynamic topic blueprint:', error?.message || error);
+    return synthesizeDynamicTopicFallback(prompt, style, format);
+  }
+}
+
+/**
+ * Dynamic Fallback Synthesizer (if offline or API key quota exhausted):
+ * Never returns hardcoded "Cloud Computing" unless the user actually asked for cloud!
+ * Dynamically constructs a tailored layout using the user's exact topic words.
+ */
+function synthesizeDynamicTopicFallback(
+  prompt: string,
+  style: string,
+  format: string = 'auto'
+): { layouts: GeneratedLayoutResult[] } {
+  const cleanTopic = prompt.trim();
+  const titleText = cleanTopic.length > 42 ? cleanTopic.substring(0, 40) + '...' : cleanTopic;
+
+  const dynamicPlan: BespokeStructuredPlan = {
+    mainTitle: titleText,
+    subtitle: `Complete step-by-step practical guide and reference architecture for ${cleanTopic}`,
+    badgeText: 'CUSTOM BLUEPRINT',
+    footerNote: `PRO TIP: Customize every card, color, and typography block directly on the canvas`,
+    ctaText: 'GET STARTED →',
+    steps: [
+      {
+        stepNumber: '01',
+        heading: `1. Prerequisites & Environment for ${titleText}`,
+        details: `• Install required runtime dependencies and core CLI tools\n• Configure local workspace, environment variables, and paths\n• Verify installation version and system compatibility`,
+      },
+      {
+        stepNumber: '02',
+        heading: `2. Project Structure & Core Configuration`,
+        details: `• Initialize isolated virtual environment or package manifest\n• Set up linting, formatting, and clean directory hierarchy\n• Configure base settings and modular entrypoints`,
+      },
+      {
+        stepNumber: '03',
+        heading: `3. Core Implementation & Best Practices`,
+        details: `• Implement primary workflows using idiomatic patterns\n• Add structured error handling, logging, and type safety\n• Keep modules decoupled and reusable`,
+      },
+      {
+        stepNumber: '04',
+        heading: `4. Automated Testing & Quality Assurance`,
+        details: `• Write unit and integration tests for critical paths\n• Run static analysis and performance benchmarks\n• Validate edge cases before deployment`,
+      },
+      {
+        stepNumber: '05',
+        heading: `5. Packaging, Deployment & Maintenance`,
+        details: `• Package build artifacts and lock dependency versions\n• Automate CI/CD pipeline and release workflows\n• Monitor runtime metrics and iterate`,
       },
     ],
+  };
+
+  return {
+    layouts: compileBespokePlanToLayouts(dynamicPlan, prompt, style, format, null),
   };
 }

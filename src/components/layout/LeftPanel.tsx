@@ -2,20 +2,16 @@
 
 import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AiDesignTool } from '@/components/tools/AiDesignTool';
 import { TemplateLibrary } from '@/components/tools/TemplateLibrary';
 import { ElementLibrary } from '@/components/tools/ElementLibrary';
 import { LayersPanel } from '@/components/tools/LayersPanel';
 import type { DesignLayout, DesignElement } from '@/types/blueprint';
 import {
-  Wand2,
   LayoutDashboard,
   Puzzle,
   Layers,
   ChevronLeft,
   ChevronRight,
-  PanelLeftClose,
-  PanelLeftOpen,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -49,11 +45,11 @@ export function LeftPanel({
   onToggleSelectElement,
   onUpdateElement,
   onDeleteElement,
-  width = 340,
+  width = 360,
   isCollapsed = false,
   onToggleCollapse,
 }: LeftPanelProps) {
-  const [activeTab, setActiveTab] = useState('ai-tool');
+  const [activeTab, setActiveTab] = useState('templates');
 
   // When collapsed: show slim 48px icon rail
   if (isCollapsed) {
@@ -79,23 +75,6 @@ export function LeftPanel({
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  variant={activeTab === 'ai-tool' ? 'secondary' : 'ghost'}
-                  size="icon"
-                  onClick={() => {
-                    setActiveTab('ai-tool');
-                    onToggleCollapse?.();
-                  }}
-                  className="h-9 w-9 rounded-lg"
-                >
-                  <Wand2 className="h-4 w-4 text-primary" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">AI Designer</TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
                   variant={activeTab === 'templates' ? 'secondary' : 'ghost'}
                   size="icon"
                   onClick={() => {
@@ -104,7 +83,7 @@ export function LeftPanel({
                   }}
                   className="h-9 w-9 rounded-lg"
                 >
-                  <LayoutDashboard className="h-4 w-4" />
+                  <LayoutDashboard className="h-4 w-4 text-primary" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="right">Templates</TooltipContent>
@@ -160,20 +139,16 @@ export function LeftPanel({
         className="flex flex-col flex-1 min-h-0 overflow-hidden"
       >
         <div className="flex items-center border-b shrink-0 h-12 bg-muted/40 pr-1">
-          <TabsList className="grid flex-1 grid-cols-4 rounded-none bg-transparent p-1 h-full">
-            <TabsTrigger value="ai-tool" className="text-xs gap-1 data-[state=active]:bg-background">
-              <Wand2 className="h-3.5 w-3.5 text-primary" />
-              <span>AI</span>
-            </TabsTrigger>
-            <TabsTrigger value="templates" className="text-xs gap-1 data-[state=active]:bg-background">
-              <LayoutDashboard className="h-3.5 w-3.5" />
+          <TabsList className="grid flex-1 grid-cols-3 rounded-none bg-transparent p-1 h-full">
+            <TabsTrigger value="templates" className="text-xs gap-1.5 data-[state=active]:bg-background font-semibold">
+              <LayoutDashboard className="h-3.5 w-3.5 text-primary" />
               <span>Templates</span>
             </TabsTrigger>
-            <TabsTrigger value="elements" className="text-xs gap-1 data-[state=active]:bg-background">
+            <TabsTrigger value="elements" className="text-xs gap-1.5 data-[state=active]:bg-background font-semibold">
               <Puzzle className="h-3.5 w-3.5" />
               <span>Elements</span>
             </TabsTrigger>
-            <TabsTrigger value="layers" className="text-xs gap-1 data-[state=active]:bg-background">
+            <TabsTrigger value="layers" className="text-xs gap-1.5 data-[state=active]:bg-background font-semibold">
               <Layers className="h-3.5 w-3.5" />
               <span>Layers</span>
             </TabsTrigger>
@@ -193,9 +168,6 @@ export function LeftPanel({
           )}
         </div>
 
-        <TabsContent value="ai-tool" className="flex-1 min-h-0 overflow-y-auto mt-0 focus-visible:outline-none">
-          <AiDesignTool onLayoutSelect={onLayoutSelect} />
-        </TabsContent>
         <TabsContent value="templates" className="flex-1 min-h-0 overflow-y-auto mt-0 focus-visible:outline-none">
           <TemplateLibrary onLayoutSelect={onLayoutSelect} />
         </TabsContent>

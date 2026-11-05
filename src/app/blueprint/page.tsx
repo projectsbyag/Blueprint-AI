@@ -9,8 +9,7 @@ import { RightPanel } from '@/components/layout/RightPanel';
 import type { DesignLayout, DesignElement, DesignPage } from '@/types/blueprint';
 import { addIdsToElements } from '@/components/canvas/Canvas';
 import { useAuth } from '@/context/AuthContext';
-import { Loader2, SlidersHorizontal } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const DEFAULT_BLANK_DESIGN: DesignLayout = {
@@ -69,12 +68,14 @@ export default function BlueprintEditorPage() {
   const selectedElementId = selectedElementIds[0] || null;
 
   // Adjustable and Collapsible Side Panels State
-  const [leftPanelWidth, setLeftPanelWidth] = useState(340);
+  const [leftPanelWidth, setLeftPanelWidth] = useState(360);
   const [isLeftPanelCollapsed, setIsLeftPanelCollapsed] = useState(false);
   const [rightPanelWidth, setRightPanelWidth] = useState(320);
   const [isRightPanelCollapsed, setIsRightPanelCollapsed] = useState(false);
   const isDraggingLeftResizer = useRef(false);
   const isDraggingRightResizer = useRef(false);
+
+
 
   // Undo / Redo history state
   const [history, setHistory] = useState<DesignLayout[]>([DEFAULT_BLANK_DESIGN]);
@@ -701,6 +702,7 @@ export default function BlueprintEditorPage() {
           onToggleCollapse={() => setIsRightPanelCollapsed(!isRightPanelCollapsed)}
         />
       </div>
+
     </div>
   );
 }

@@ -1,6 +1,6 @@
 'use server';
 
-import { generateAIGraphicsLayouts, type GeneratedLayoutResult } from '@/ai/gemini-service';
+import { generateAIGraphicsLayouts, generateNanoBananaImage, type GeneratedLayoutResult } from '@/ai/gemini-service';
 import { GoogleGenAI } from '@google/genai';
 
 export interface GenerateDesignLayoutInput {
@@ -8,6 +8,10 @@ export interface GenerateDesignLayoutInput {
   style?: string;
   category?: string;
   format?: 'infographic' | 'poster' | 'diagram' | 'carousel' | 'auto';
+  apiKey?: string;
+  model?: string;
+  mcpContext?: string;
+  generateImagesWithNanoBanana?: boolean;
 }
 
 export interface GenerateDesignLayoutOutput {
@@ -24,6 +28,10 @@ export async function generateBlueprintLayout(input: GenerateDesignLayoutInput):
       style: input.style,
       category: input.category,
       format: input.format,
+      apiKey: input.apiKey,
+      model: input.model,
+      mcpContext: input.mcpContext,
+      generateImagesWithNanoBanana: input.generateImagesWithNanoBanana,
     });
     if (!result || !result.layouts || result.layouts.length === 0) {
       throw new Error('AI could not generate layouts. Please try another prompt.');
@@ -36,6 +44,17 @@ export async function generateBlueprintLayout(input: GenerateDesignLayoutInput):
     }
     throw new Error('An unexpected error occurred while generating the design.');
   }
+}
+
+export async function generateCustomNanoBananaAsset(prompt: string, apiKey?: string): Promise<{ imageUrl: string }> {
+  if (!prompt || !prompt.trim()) {
+    throw new Error('Please describe the image you want Nano Banana to generate.');
+  }
+  const dataUrl = await generateNanoBananaImage(prompt.trim(), apiKey);
+  if (!dataUrl) {
+    throw new Error('Could not generate image. Check your API key or quota.');
+  }
+  return { imageUrl: dataUrl };
 }
 
 export async function generateAICopyAlternative(currentText: string, goal: string = 'more catchy'): Promise<string[]> {
@@ -53,7 +72,7 @@ export async function generateAICopyAlternative(currentText: string, goal: strin
       httpOptions: { headers: { 'User-Agent': 'aistudio-build' } },
     });
     const res = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
+      model: 'gemini-2.5-flash',
       contents: `Provide 4 short, punchy, high-converting alternative copy options for this graphic design text:
 Current: "${currentText}"
 Goal: "${goal}"

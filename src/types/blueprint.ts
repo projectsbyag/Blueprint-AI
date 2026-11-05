@@ -2,14 +2,39 @@ import type React from 'react';
 
 export interface ElementStyle extends React.CSSProperties {
   zIndex?: number;
-  rotation?: number; // in degrees
+  rotation?: number; // in degrees (-180 to 180)
+  flipX?: boolean;
+  flipY?: boolean;
+  locked?: boolean;
   borderRadius?: string;
   borderColor?: string;
   borderWidth?: string;
+  borderStyle?: 'solid' | 'dashed' | 'dotted' | 'double' | 'none';
+  boxShadow?: string;
   opacity?: number;
   textShadow?: string;
   letterSpacing?: string;
   lineHeight?: string | number;
+  textTransform?: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
+  textDecoration?: 'none' | 'underline' | 'line-through';
+  shapeType?:
+    | 'rectangle'
+    | 'circle'
+    | 'pill'
+    | 'arrow-right'
+    | 'arrow-left'
+    | 'arrow-up'
+    | 'arrow-down'
+    | 'double-arrow'
+    | 'triangle'
+    | 'star'
+    | 'badge-ribbon'
+    | 'quote-bubble'
+    | 'divider-solid'
+    | 'divider-dashed'
+    | 'divider-gradient';
+  filter?: string;
+  backdropFilter?: string;
   [key: string]: any;
 }
 

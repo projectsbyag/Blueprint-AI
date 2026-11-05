@@ -140,48 +140,130 @@ export function PropertiesEditor({
           </div>
         </div>
 
-        {/* Quick alignment & layer shortcuts */}
-        <div className="grid grid-cols-4 gap-1 p-1 bg-muted/40 rounded border text-xs">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleCenterH}
-            title="Center Horizontally"
-            className="h-7 px-1 text-[11px]"
-          >
-            <AlignCenter className="h-3 w-3 mr-1" />
-            Center X
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleCenterV}
-            title="Center Vertically"
-            className="h-7 px-1 text-[11px]"
-          >
-            <AlignCenter className="h-3 w-3 mr-1 rotate-90" />
-            Center Y
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => handleLayerOrder('up')}
-            title="Bring Forward"
-            className="h-7 px-1 text-[11px]"
-          >
-            <ArrowUp className="h-3 w-3 mr-1" />
-            Forward
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => handleLayerOrder('down')}
-            title="Send Backward"
-            className="h-7 px-1 text-[11px]"
-          >
-            <ArrowDown className="h-3 w-3 mr-1" />
-            Back
-          </Button>
+        {/* Canva-Style Position & Alignment Controls */}
+        <div className="space-y-1.5 p-2 bg-muted/30 rounded-lg border text-xs">
+          <div className="flex items-center justify-between text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+            <span>Canvas Alignment</span>
+          </div>
+          <div className="grid grid-cols-6 gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onUpdateElement({ ...selectedElement, position: { ...selectedElement.position, x: 50 } })}
+              title="Align Left (margin 50px)"
+              className="h-7 px-1 text-[10px]"
+            >
+              Left
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCenterH}
+              title="Center Horizontally"
+              className="h-7 px-1 text-[10px] font-bold text-primary"
+            >
+              Center X
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                onUpdateElement({
+                  ...selectedElement,
+                  position: { ...selectedElement.position, x: Math.max(0, 1000 - selectedElement.size.width - 50) },
+                })
+              }
+              title="Align Right (margin 50px)"
+              className="h-7 px-1 text-[10px]"
+            >
+              Right
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onUpdateElement({ ...selectedElement, position: { ...selectedElement.position, y: 50 } })}
+              title="Align Top (margin 50px)"
+              className="h-7 px-1 text-[10px]"
+            >
+              Top
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCenterV}
+              title="Center Vertically"
+              className="h-7 px-1 text-[10px] font-bold text-primary"
+            >
+              Center Y
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                onUpdateElement({
+                  ...selectedElement,
+                  position: { ...selectedElement.position, y: Math.max(0, 1000 - selectedElement.size.height - 50) },
+                })
+              }
+              title="Align Bottom (margin 50px)"
+              className="h-7 px-1 text-[10px]"
+            >
+              Bottom
+            </Button>
+          </div>
+
+          <div className="flex items-center justify-between text-[11px] font-semibold text-muted-foreground uppercase tracking-wider pt-1.5 border-t">
+            <span>Layer Order</span>
+          </div>
+          <div className="grid grid-cols-4 gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleLayerOrder('up')}
+              title="Bring Forward (+1)"
+              className="h-7 px-1 text-[10px]"
+            >
+              <ArrowUp className="h-3 w-3 mr-0.5" /> Forward
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleLayerOrder('down')}
+              title="Send Backward (-1)"
+              className="h-7 px-1 text-[10px]"
+            >
+              <ArrowDown className="h-3 w-3 mr-0.5" /> Back
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const currentZ = Number(selectedElement.style?.zIndex) || 1;
+                onUpdateElement({
+                  ...selectedElement,
+                  style: { ...selectedElement.style, zIndex: Math.max(10, currentZ + 5) },
+                });
+              }}
+              title="Bring to Front"
+              className="h-7 px-1 text-[10px]"
+            >
+              To Front
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                onUpdateElement({
+                  ...selectedElement,
+                  style: { ...selectedElement.style, zIndex: 1 },
+                });
+              }}
+              title="Send to Back"
+              className="h-7 px-1 text-[10px]"
+            >
+              To Back
+            </Button>
+          </div>
         </div>
 
         {renderEditor()}

@@ -21,30 +21,26 @@
 
 ## ✨ Core Features
 
-### 🤖 Intelligent AI Layout Generation
-- **Freeform Creative Synthesis**: Describe your vision in plain English (e.g. *"Minimalist SaaS product launch post with neon cyan accents and bold headline"* or *"A 5-step cloud computing roadmap infographic"*).
-- **Gemini 2.5 Flash Engine**: Leverages `@google/genai` to analyze design semantics and synthesize fully coordinated coordinate positions, aspect ratios, responsive element hierarchies, typography, and palette pairings.
-- **Layout Variator**: Generate multi-layout alternatives with 1 click to test different compositional layouts.
+### 📋 16 Curated High-Converting Templates
+- **Rich Presets Across Categories**: 1-click loading for multi-slide carousel decks (Product Launch, Investor Pitch Deck), developer roadmaps & architecture infographics, luxury real estate flyers, keynote tech posters, cyberpunk events, fitness challenges, hiring announcements, pricing tables, and award certificates.
+- **Search & Category Filtering**: Instantly search templates or filter by *Carousels*, *Infographics*, *Marketing & Sales*, *Social & Media*, and *Business & Career*.
+- **Instant Canvas Initialization**: Applies balanced layout composition, typographic hierarchy, responsive coordinates, and palette pairings instantly to the artboard.
 
-### 🎠 Multi-Slide Carousels (LinkedIn, Instagram & Presentations)
-- **Slide Carousel Tray**: Visual slide thumbnail reel at the bottom of the canvas with drag-to-reorder, duplicate, add, and delete controls.
-- **Independent Canvas Canvas State**: Each slide preserves its own unique canvas background color, element hierarchies, groups, and z-indexes.
-- **Multi-Slide AI Generation**: Request multi-slide themes and carousels directly from the AI prompt.
+### ✍️ AI-Powered Copy & Headline Polish
+- **Contextual Copy Rewriter**: Select any text element on canvas to generate punchy, high-converting headline and copy suggestions with 1 click.
+- **Smart Headline Replacer**: Preview alternative suggestions directly in the inspector and click to replace instantly.
 
-### 📐 Interactive Vector Canvas
-- **Direct Drag & Resize**: Intuitive 8-point boundary handles with active snap feedback.
-- **Precision Element Grouping**: Select multiple elements via Shift-Click or Drag marquee (`Ctrl + G` to group, `Ctrl + Shift + G` to ungroup). Grouped items drag and scale synchronously as a unified unit.
-- **Dynamic Auto-Fit Zoom**: Smart viewport scaler that automatically calculates the optimal canvas scale when panels collapse or screen dimensions change.
-- **Alignment & Snapping**: Center horizontally, center vertically, auto-distribute spacing, and snap to visual grid.
-- **30-Step Undo & Redo History**: Complete state journal tracking element additions, deletions, group operations, and layout shifts (`Ctrl + Z` / `Ctrl + Y`).
-- **Experimental Palette Shifter**: 1-click harmony cycle testing curated themes (*Midnight Luxe*, *Nordic Minimalist*, *Cyberpunk Neon*, *Earthy Warmth*).
-
-### 🎛️ Responsive & Collapsible Panels
-- **Adjustable Widths**: Drag handles on panel borders to resize both the Toolbox (260px–550px) and the Properties Inspector (260px–500px).
-- **Collapsible Icon Rails**: Collapse either panel into an ultra-slim vertical icon rail to maximize canvas real estate.
-- **1-Click Header Toggles**: Dedicated *Tools* and *Properties* quick-toggle buttons in the top navigation bar.
-
-### 🎨 Curated Design Controls
+### 📐 Canva-Grade Design Tools & Elements
+- **Shapes & Vector Arrows**: Right arrows, left arrows, double-ended connectors, sharp triangles, 5-point stars, starburst ribbons, quote bubbles, glassmorphic frosted cards, and pills.
+- **Canva Style Properties**:
+  - **Border Controls**: Width slider (0–30px), border styles (Solid, Dashed, Dotted, Double, None), and custom color swatches.
+  - **Corner Radius**: Sharp (0px), Soft (8px), Card (20px), Full Pill/Circle (9999px).
+  - **Canva Shadow Presets**: None, Soft, Elevated, Neon Glow, Retro Hard, and Dramatic Deep.
+  - **Transforms & Snaps**: Slider (-180° to 180°), quick snap buttons (0°, 90°, 180°, 270°), Flip Horizontal, and Flip Vertical.
+  - **Lock / Unlock Elements**: Prevent accidental dragging or resizing of background layers.
+  - **Canva Alignment & Layer Stack**: 6-point alignment (Left, Center X, Right, Top, Center Y, Bottom) plus Bring to Front, Forward, Backward, and Send to Back.
+  - **Text Enhancements**: Text transform (UPPERCASE, lowercase, Capitalize), text decoration (Underline, Strikethrough), and text highlight badges.
+  - **Image Filters & Presets**: Aspect ratio presets (1:1, 16:9, 3:4, Circle Avatar) and visual filters (Grayscale, High Contrast, Warm Vintage, Cool Minimal).
 - **Preset Color Swatches**: Categorized palette picker (Neutrals & Monochrome, Vibrant Primaries, Pastels & Earthy) plus custom hex input for background colors, text colors, and shape borders.
 - **Curated Web Typography**: Visual preset selector featuring popular fonts (*Inter*, *Space Grotesk*, *Poppins*, *Playfair Display*, *Montserrat*, *Roboto*, *Oswald*, *JetBrains Mono*) with live preview rendering.
 - **Shapes & Icon Library**: Rectangles, circles, badges, cards, dividers, buttons, and decorative motifs with adjustable border radius, opacity, and rotation.

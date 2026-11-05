@@ -1,7 +1,7 @@
 'use client';
 
 import type { DesignLayout, DesignElement } from '@/types/blueprint';
-import { CanvasElement } from './CanvasElement';
+import { CanvasElement, type ResizeHandle } from './CanvasElement';
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -140,10 +140,10 @@ export function Canvas({
     initialPositions: Record<string, { x: number; y: number }>;
   } | null>(null);
 
-  // Resize state (for primary selected element)
+  // Resize state (for primary selected element - supports 8 handles)
   const [resizeState, setResizeState] = useState<{
     elementId: string;
-    corner: 'br' | 'tl' | 'tr' | 'bl';
+    handle: ResizeHandle;
     startX: number;
     startY: number;
     initialW: number;
@@ -154,8 +154,8 @@ export function Canvas({
 
   const calculateAutoFitScale = useCallback(() => {
     if (canvasContainerRef.current) {
-      const containerWidth = canvasContainerRef.current.offsetWidth - 80;
-      const containerHeight = canvasContainerRef.current.offsetHeight - 90;
+      const containerWidth = canvasContainerRef.current.offsetWidth - 120;
+      const containerHeight = canvasContainerRef.current.offsetHeight - 140;
       if (containerWidth > 0 && containerHeight > 0) {
         const minDim = Math.min(containerWidth, containerHeight);
         const newScale = Math.min(1.2, Math.max(0.25, minDim / CANVAS_BASE_WIDTH));
@@ -169,6 +169,23 @@ export function Canvas({
     window.addEventListener('resize', calculateAutoFitScale);
     return () => window.removeEventListener('resize', calculateAutoFitScale);
   }, [calculateAutoFitScale]);
+
+  // Support Ctrl + Wheel or Trackpad Pinch to Zoom
+  useEffect(() => {
+    const container = canvasContainerRef.current;
+    if (!container) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const delta = e.deltaY < 0 ? 0.05 : -0.05;
+        setScale((s) => Math.min(2.0, Math.max(0.2, Number((s + delta).toFixed(2)))));
+      }
+    };
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => container.removeEventListener('wheel', handleWheel);
+  }, []);
 
   // Keyboard navigation for selected elements
   useEffect(() => {
@@ -231,6 +248,7 @@ export function Canvas({
   const handleStartDrag = useCallback(
     (e: React.MouseEvent, element: DesignElement) => {
       e.stopPropagation();
+      if (element.style?.locked) return;
 
       let activeIds: string[] = [];
 
@@ -283,11 +301,12 @@ export function Canvas({
   );
 
   const handleStartResize = useCallback(
-    (e: React.MouseEvent, element: DesignElement, corner: 'br' | 'tl' | 'tr' | 'bl') => {
+    (e: React.MouseEvent, element: DesignElement, handle: ResizeHandle) => {
       e.stopPropagation();
+      if (element.style?.locked) return;
       setResizeState({
         elementId: element.id,
-        corner,
+        handle,
         startX: e.clientX,
         startY: e.clientY,
         initialW: element.size.width,
@@ -326,7 +345,7 @@ export function Canvas({
         return;
       }
 
-      // Handle Resizing (Single element)
+      // Handle Resizing (8 directions: 4 corners + 4 mid-sides)
       if (resizeState && onUpdateElement) {
         const deltaX = (e.clientX - resizeState.startX) / scale;
         const deltaY = (e.clientY - resizeState.startY) / scale;
@@ -338,22 +357,44 @@ export function Canvas({
         let newX = resizeState.initialX;
         let newY = resizeState.initialY;
 
-        if (resizeState.corner === 'br') {
-          newW = Math.max(40, Math.round(resizeState.initialW + deltaX));
-          newH = Math.max(30, Math.round(resizeState.initialH + deltaY));
-        } else if (resizeState.corner === 'bl') {
-          newW = Math.max(40, Math.round(resizeState.initialW - deltaX));
-          newH = Math.max(30, Math.round(resizeState.initialH + deltaY));
-          newX = Math.round(resizeState.initialX + deltaX);
-        } else if (resizeState.corner === 'tr') {
-          newW = Math.max(40, Math.round(resizeState.initialW + deltaX));
-          newH = Math.max(30, Math.round(resizeState.initialH - deltaY));
-          newY = Math.round(resizeState.initialY + deltaY);
-        } else if (resizeState.corner === 'tl') {
-          newW = Math.max(40, Math.round(resizeState.initialW - deltaX));
-          newH = Math.max(30, Math.round(resizeState.initialH - deltaY));
-          newX = Math.round(resizeState.initialX + deltaX);
-          newY = Math.round(resizeState.initialY + deltaY);
+        switch (resizeState.handle) {
+          // 4 Corners
+          case 'br':
+            newW = Math.max(30, Math.round(resizeState.initialW + deltaX));
+            newH = Math.max(20, Math.round(resizeState.initialH + deltaY));
+            break;
+          case 'bl':
+            newW = Math.max(30, Math.round(resizeState.initialW - deltaX));
+            newH = Math.max(20, Math.round(resizeState.initialH + deltaY));
+            newX = Math.round(resizeState.initialX + deltaX);
+            break;
+          case 'tr':
+            newW = Math.max(30, Math.round(resizeState.initialW + deltaX));
+            newH = Math.max(20, Math.round(resizeState.initialH - deltaY));
+            newY = Math.round(resizeState.initialY + deltaY);
+            break;
+          case 'tl':
+            newW = Math.max(30, Math.round(resizeState.initialW - deltaX));
+            newH = Math.max(20, Math.round(resizeState.initialH - deltaY));
+            newX = Math.round(resizeState.initialX + deltaX);
+            newY = Math.round(resizeState.initialY + deltaY);
+            break;
+
+          // 4 Mid-Sides
+          case 'top':
+            newH = Math.max(20, Math.round(resizeState.initialH - deltaY));
+            newY = Math.round(resizeState.initialY + deltaY);
+            break;
+          case 'bottom':
+            newH = Math.max(20, Math.round(resizeState.initialH + deltaY));
+            break;
+          case 'left':
+            newW = Math.max(30, Math.round(resizeState.initialW - deltaX));
+            newX = Math.round(resizeState.initialX + deltaX);
+            break;
+          case 'right':
+            newW = Math.max(30, Math.round(resizeState.initialW + deltaX));
+            break;
         }
 
         onUpdateElement({
@@ -396,12 +437,14 @@ export function Canvas({
         };
       } else if (el.type === 'shape') {
         const isButton = el.size.width < 320 && el.size.height < 70;
+        const { border: _discard, ...restStyle } = (el.style || {}) as any;
         return {
           ...el,
           style: {
-            ...el.style,
+            ...restStyle,
             backgroundColor: isButton ? theme.primary : theme.card,
             borderColor: theme.accent,
+            borderStyle: restStyle.borderStyle || (restStyle.borderWidth ? 'solid' : undefined),
           },
         };
       }
@@ -461,16 +504,15 @@ export function Canvas({
 
   return (
     <div
-      ref={canvasContainerRef}
       className={cn(
-        'w-full h-full flex flex-col items-center justify-center bg-muted/30 overflow-hidden relative select-none',
+        'w-full h-full relative select-none overflow-hidden bg-muted/20 flex flex-col',
         className
       )}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
     >
-      {/* Top Floating Canvas Toolbar */}
-      <div className="absolute top-3 inset-x-4 flex items-center justify-between z-20 pointer-events-none">
+      {/* Top Floating Canvas Toolbar (Fixed overlay over scrolling viewport) */}
+      <div className="absolute top-3 left-4 right-4 flex items-center justify-between z-30 pointer-events-none">
         {/* Left: History & Alignment */}
         <div className="flex items-center gap-1.5 p-1 bg-background/90 backdrop-blur-md border rounded-xl shadow-sm pointer-events-auto">
           <Button
@@ -717,26 +759,31 @@ export function Canvas({
         </div>
       </div>
 
-      {/* Main 1000x1000 Canvas */}
+      {/* Scrollable Canvas Viewport */}
       <div
-        ref={canvasRef}
-        id="blueprint-active-canvas"
-        style={{
-          width: `${CANVAS_BASE_WIDTH * scale}px`,
-          height: `${CANVAS_BASE_HEIGHT * scale}px`,
-          position: 'relative',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05)',
-          borderRadius: '8px',
-          overflow: 'hidden',
-          backgroundColor: design?.canvasBackgroundColor || '#FFFFFF',
-          transition: 'background-color 0.2s ease',
-          backgroundImage: showGrid
-            ? 'linear-gradient(to right, rgba(120, 120, 120, 0.1) 1px, transparent 1px), linear-gradient(to bottom, rgba(120, 120, 120, 0.1) 1px, transparent 1px)'
-            : 'none',
-          backgroundSize: `${50 * scale}px ${50 * scale}px`,
-        }}
-        onClick={handleCanvasClick}
+        ref={canvasContainerRef}
+        className="w-full h-full overflow-auto custom-scrollbar relative flex p-16 sm:p-24"
       >
+        {/* Main 1000x1000 Canvas with margin: auto for perfect centering & 360-degree scrollability */}
+        <div
+          ref={canvasRef}
+          id="blueprint-active-canvas"
+          className="m-auto shrink-0 relative transition-all duration-75"
+          style={{
+            width: `${CANVAS_BASE_WIDTH * scale}px`,
+            height: `${CANVAS_BASE_HEIGHT * scale}px`,
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.08)',
+            borderRadius: '12px',
+            overflow: 'hidden',
+            backgroundColor: design?.canvasBackgroundColor || '#FFFFFF',
+            transition: 'background-color 0.2s ease',
+            backgroundImage: showGrid
+              ? 'linear-gradient(to right, rgba(120, 120, 120, 0.1) 1px, transparent 1px), linear-gradient(to bottom, rgba(120, 120, 120, 0.1) 1px, transparent 1px)'
+              : 'none',
+            backgroundSize: `${50 * scale}px ${50 * scale}px`,
+          }}
+          onClick={handleCanvasClick}
+        >
         {design &&
           design.elements.map((element) => {
             const isSelected = effectiveSelectedIds.includes(element.id);
@@ -754,7 +801,7 @@ export function Canvas({
                 isSelected={isSelected}
                 isGroupMember={isGroupMember}
                 onMouseDown={(e) => handleStartDrag(e, element)}
-                onResizeStart={(e, corner) => handleStartResize(e, element, corner)}
+                onResizeStart={(e, handle) => handleStartResize(e, element, handle)}
                 onClick={(e) => {
                   e.stopPropagation();
                   if (e.shiftKey) {
@@ -791,6 +838,7 @@ export function Canvas({
             </p>
           </div>
         )}
+        </div>
       </div>
     </div>
   );
