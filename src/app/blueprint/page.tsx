@@ -9,6 +9,7 @@ import { RightPanel } from '@/components/layout/RightPanel';
 import type { DesignLayout, DesignElement, DesignPage } from '@/types/blueprint';
 import { addIdsToElements, addIdsToLayout } from '@/components/canvas/Canvas';
 import { PREDEFINED_TEMPLATES } from '@/components/tools/TemplateLibrary';
+import { consumePendingStudioDraft } from '@/lib/preview-bridge';
 import { useAuth } from '@/context/AuthContext';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -85,7 +86,9 @@ export default function BlueprintEditorPage() {
 
   useEffect(() => {
     if (!authLoading && !user) {
-      router.push('/login?redirect=/blueprint');
+      const currentSearch = typeof window !== 'undefined' ? window.location.search : '';
+      const returnUrl = `/blueprint${currentSearch}`;
+      router.push(`/login?redirect=${encodeURIComponent(returnUrl)}`);
     }
   }, [user, authLoading, router]);
 
@@ -112,11 +115,26 @@ export default function BlueprintEditorPage() {
     });
   }, [historyIndex]);
 
-  // Load template if requested via URL query (e.g. /blueprint?template=2)
+  // Load preview draft (?fromPreview=1) or template (?template=N) once authenticated
   const templateLoadedRef = useRef(false);
   useEffect(() => {
-    if (templateLoadedRef.current || typeof window === 'undefined') return;
+    if (templateLoadedRef.current || authLoading || !user || typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
+
+    if (params.get('fromPreview') === '1') {
+      const pendingDraft = consumePendingStudioDraft();
+      if (pendingDraft) {
+        templateLoadedRef.current = true;
+        const layoutWithIds = addIdsToLayout(pendingDraft);
+        commitToHistory(layoutWithIds);
+        toast({
+          title: 'Preview Design Loaded!',
+          description: 'Your edits from the landing preview are ready to continue customizing.',
+        });
+        return;
+      }
+    }
+
     const templateIdxStr = params.get('template');
     if (templateIdxStr !== null) {
       const idx = parseInt(templateIdxStr, 10);
@@ -127,7 +145,7 @@ export default function BlueprintEditorPage() {
         commitToHistory(layoutWithIds);
       }
     }
-  }, [commitToHistory]);
+  }, [authLoading, user, commitToHistory, toast]);
 
   const handleUndo = useCallback(() => {
     if (historyIndex > 0) {
@@ -440,7 +458,13 @@ export default function BlueprintEditorPage() {
 
       const isCtrlOrMeta = e.ctrlKey || e.metaKey;
 
-      if (isCtrlOrMeta && e.key.toLowerCase() === 'g') {
+      if (isCtrlOrMeta && e.key.toLowerCase() === 'a') {
+        e.preventDefault();
+        const unlockedIds = currentDesign.elements
+          .filter((el) => !el.style?.locked)
+          .map((el) => el.id);
+        setSelectedElementIds(unlockedIds);
+      } else if (isCtrlOrMeta && e.key.toLowerCase() === 'g') {
         e.preventDefault();
         if (e.shiftKey) {
           handleUngroupElements();
@@ -646,6 +670,8 @@ export default function BlueprintEditorPage() {
           onSelectElement={handleSelectElement}
           onSelectElements={handleSelectElements}
           onToggleSelectElement={handleToggleSelectElement}
+          onGroupElements={handleGroupElements}
+          onUngroupElements={handleUngroupElements}
           onUpdateElement={handleUpdateElement}
           onDeleteElement={handleDeleteElement}
           width={leftPanelWidth}
@@ -710,9 +736,15 @@ export default function BlueprintEditorPage() {
         {/* Right Side Panel (Adjustable & Collapsible) */}
         <RightPanel
           selectedElement={getSelectedElement()}
+          selectedElements={currentDesign.elements.filter((el) => selectedElementIds.includes(el.id))}
           onUpdateElement={handleUpdateElement}
+          onBatchUpdateElements={handleBatchUpdateElements}
           onDeleteElement={handleDeleteElement}
+          onDeleteElements={handleDeleteSelected}
           onDuplicateElement={handleDuplicateElement}
+          onDuplicateElements={handleDuplicateSelected}
+          onGroupElements={handleGroupElements}
+          onUngroupElements={handleUngroupElements}
           canvasBackgroundColor={currentDesign?.canvasBackgroundColor}
           onUpdateCanvasBackgroundColor={handleUpdateCanvasBackgroundColor}
           width={rightPanelWidth}

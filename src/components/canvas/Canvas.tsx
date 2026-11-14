@@ -152,6 +152,16 @@ export function Canvas({
     initialY: number;
   } | null>(null);
 
+  // Marquee drag-selection box state (coordinates in unscaled 0..1000 canvas space)
+  const [marqueeState, setMarqueeState] = useState<{
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
+  } | null>(null);
+  const justFinishedMarqueeRef = useRef(false);
+  const selectionHandledOnMouseDownRef = useRef(false);
+
   const calculateAutoFitScale = useCallback(() => {
     if (canvasContainerRef.current) {
       const containerWidth = canvasContainerRef.current.offsetWidth - 120;
@@ -250,6 +260,7 @@ export function Canvas({
       e.stopPropagation();
       if (element.style?.locked) return;
 
+      selectionHandledOnMouseDownRef.current = true;
       let activeIds: string[] = [];
 
       if (e.shiftKey) {
@@ -402,17 +413,65 @@ export function Canvas({
           position: { x: newX, y: newY },
           size: { width: newW, height: newH },
         });
+        return;
+      }
+
+      // Handle Marquee Selection Drag
+      if (marqueeState && canvasRef.current) {
+        const rect = canvasRef.current.getBoundingClientRect();
+        const x = Math.max(0, Math.min(CANVAS_BASE_WIDTH, (e.clientX - rect.left) / scale));
+        const y = Math.max(0, Math.min(CANVAS_BASE_HEIGHT, (e.clientY - rect.top) / scale));
+        setMarqueeState((prev) => (prev ? { ...prev, currentX: x, currentY: y } : null));
       }
     },
-    [dragState, resizeState, design, onUpdateElement, onBatchUpdateElements, scale]
+    [dragState, resizeState, marqueeState, design, onUpdateElement, onBatchUpdateElements, scale]
   );
 
   const handleMouseUp = useCallback(() => {
+    if (marqueeState && design) {
+      const minX = Math.min(marqueeState.startX, marqueeState.currentX);
+      const maxX = Math.max(marqueeState.startX, marqueeState.currentX);
+      const minY = Math.min(marqueeState.startY, marqueeState.currentY);
+      const maxY = Math.max(marqueeState.startY, marqueeState.currentY);
+
+      if (maxX - minX > 8 || maxY - minY > 8) {
+        const intersectingIds = design.elements
+          .filter((el) => {
+            if (el.style?.locked) return false;
+            const ex2 = el.position.x + el.size.width;
+            const ey2 = el.position.y + el.size.height;
+            return el.position.x <= maxX && ex2 >= minX && el.position.y <= maxY && ey2 >= minY;
+          })
+          .map((el) => el.id);
+
+        if (onSelectElements) {
+          onSelectElements(intersectingIds);
+        } else if (intersectingIds[0]) {
+          onSelectElement(intersectingIds[0]);
+        } else {
+          onSelectElement(null);
+        }
+        justFinishedMarqueeRef.current = true;
+      }
+    }
     setDragState(null);
     setResizeState(null);
-  }, []);
+    setMarqueeState(null);
+  }, [marqueeState, design, onSelectElements, onSelectElement]);
+
+  const handleCanvasMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target !== e.currentTarget || !canvasRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / scale;
+    const y = (e.clientY - rect.top) / scale;
+    setMarqueeState({ startX: x, startY: y, currentX: x, currentY: y });
+  };
 
   const handleCanvasClick = (e: React.MouseEvent) => {
+    if (justFinishedMarqueeRef.current) {
+      justFinishedMarqueeRef.current = false;
+      return;
+    }
     if (e.target === e.currentTarget) {
       onSelectElement(null);
       onSelectElements?.([]);
@@ -621,7 +680,7 @@ export function Canvas({
 
         {/* Center: Single Element Quick Bar */}
         {!isMultiSelection && singleSelectedElement && (
-          <div className="hidden lg:flex items-center gap-1 p-1 bg-background/95 backdrop-blur-md border rounded-xl shadow-md pointer-events-auto animate-in fade-in zoom-in-95 duration-150">
+          <div className="hidden md:flex items-center gap-1 p-1 bg-background/95 backdrop-blur-md border rounded-xl shadow-md pointer-events-auto animate-in fade-in zoom-in-95 duration-150">
             <span className="text-[11px] font-bold uppercase tracking-wider text-primary px-2">
               {singleSelectedElement.type}
             </span>
@@ -782,6 +841,7 @@ export function Canvas({
               : 'none',
             backgroundSize: `${50 * scale}px ${50 * scale}px`,
           }}
+          onMouseDown={handleCanvasMouseDown}
           onClick={handleCanvasClick}
         >
         {design &&
@@ -804,6 +864,10 @@ export function Canvas({
                 onResizeStart={(e, handle) => handleStartResize(e, element, handle)}
                 onClick={(e) => {
                   e.stopPropagation();
+                  if (selectionHandledOnMouseDownRef.current) {
+                    selectionHandledOnMouseDownRef.current = false;
+                    return;
+                  }
                   if (e.shiftKey) {
                     onToggleSelectElement?.(element.id);
                   } else if (element.groupId) {
@@ -826,6 +890,19 @@ export function Canvas({
               />
             );
           })}
+
+        {/* Marquee Multi-Select Rectangle */}
+        {marqueeState && (
+          <div
+            className="absolute pointer-events-none border-2 border-primary bg-primary/15 z-50"
+            style={{
+              left: `${Math.min(marqueeState.startX, marqueeState.currentX) * scale}px`,
+              top: `${Math.min(marqueeState.startY, marqueeState.currentY) * scale}px`,
+              width: `${Math.abs(marqueeState.currentX - marqueeState.startX) * scale}px`,
+              height: `${Math.abs(marqueeState.currentY - marqueeState.startY) * scale}px`,
+            }}
+          />
+        )}
 
         {(!design || design.elements.length === 0) && (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground p-6 text-center pointer-events-none">

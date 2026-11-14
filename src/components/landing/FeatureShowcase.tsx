@@ -89,19 +89,24 @@ export function FeatureShowcase() {
         <div className="rounded-2xl border-2 border-[#CBD5E1] bg-white p-6 shadow-sm hover:border-[#5B8DEF] transition-all flex flex-col justify-between group">
           <div>
             <div className="flex items-center justify-between mb-4">
-              <span className="font-mono text-[10px] font-bold text-[#5B8DEF] tracking-wider uppercase">
-                CAPABILITY // 01
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-[10px] font-bold text-[#5B8DEF] tracking-wider uppercase">
+                  CAPABILITY // 01
+                </span>
+                <span className="px-1.5 py-0.5 rounded bg-amber-100 border border-amber-300 font-mono text-[9px] font-bold text-amber-800">
+                  EXPERIMENTAL · IN DEV
+                </span>
+              </div>
               <div className="w-8 h-8 rounded-lg bg-[#5B8DEF]/10 flex items-center justify-center text-[#2563EB]">
                 <Sparkles className="w-4 h-4" />
               </div>
             </div>
 
             <h3 className="text-xl font-black font-headline text-[#1E293B] mb-2">
-              AI-Powered Layout Generation
+              AI-Assisted Layout Concepts
             </h3>
             <p className="text-sm text-[#64748B] mb-5 leading-relaxed">
-              Describe your topic or announcement. Blueprint synthesizes balanced spatial hierarchy, typography scales, and cohesive accents in seconds.
+              Experimental AI features are currently in active development. All manual templates, vector tools, and canvas controls work seamlessly out of the box.
             </p>
           </div>
 
@@ -263,9 +268,14 @@ export function FeatureShowcase() {
         <div className="rounded-2xl border-2 border-[#CBD5E1] bg-white p-6 shadow-sm hover:border-[#5B8DEF] transition-all flex flex-col justify-between group">
           <div>
             <div className="flex items-center justify-between mb-4">
-              <span className="font-mono text-[10px] font-bold text-[#5B8DEF] tracking-wider uppercase">
-                CAPABILITY // 04
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-[10px] font-bold text-[#5B8DEF] tracking-wider uppercase">
+                  CAPABILITY // 04
+                </span>
+                <span className="px-1.5 py-0.5 rounded bg-amber-100 border border-amber-300 font-mono text-[9px] font-bold text-amber-800">
+                  EXPERIMENTAL · IN DEV
+                </span>
+              </div>
               <div className="w-8 h-8 rounded-lg bg-[#5B8DEF]/10 flex items-center justify-center text-[#2563EB]">
                 <Type className="w-4 h-4" />
               </div>
@@ -275,7 +285,7 @@ export function FeatureShowcase() {
               Smart Copy & Headline Rewriter
             </h3>
             <p className="text-sm text-[#64748B] mb-5 leading-relaxed">
-              Stuck on words? Highlight any text layer to generate punchy, high-converting hooks, executive titles, and concise captions tailored to your audience.
+              Experimental AI rewrite suggestions for headlines and captions (still in active development alongside full manual typography editing).
             </p>
           </div>
 

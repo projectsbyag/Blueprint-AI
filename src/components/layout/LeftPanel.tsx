@@ -26,6 +26,8 @@ interface LeftPanelProps {
   onSelectElement: (id: string | null) => void;
   onSelectElements?: (ids: string[]) => void;
   onToggleSelectElement?: (id: string) => void;
+  onGroupElements?: () => void;
+  onUngroupElements?: () => void;
   onUpdateElement: (element: DesignElement) => void;
   onDeleteElement: (id: string) => void;
   // Resizing & Collapsing
@@ -43,6 +45,8 @@ export function LeftPanel({
   onSelectElement,
   onSelectElements,
   onToggleSelectElement,
+  onGroupElements,
+  onUngroupElements,
   onUpdateElement,
   onDeleteElement,
   width = 360,
@@ -182,6 +186,8 @@ export function LeftPanel({
             onSelectElement={onSelectElement}
             onSelectElements={onSelectElements}
             onToggleSelectElement={onToggleSelectElement}
+            onGroupElements={onGroupElements}
+            onUngroupElements={onUngroupElements}
             onUpdateElement={onUpdateElement}
             onDeleteElement={onDeleteElement}
           />

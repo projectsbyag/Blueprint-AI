@@ -83,7 +83,7 @@ export default function LandingPage() {
         </div>
 
         {/* Architectural Trust Signals */}
-        <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-8 font-mono text-xs text-[#64748B] mb-12">
+        <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-8 font-mono text-xs text-[#64748B] mb-6">
           <div className="flex items-center gap-1.5">
             <CheckCircle2 className="w-3.5 h-3.5 text-[#5B8DEF]" />
             <span>16 Curated Presets</span>
@@ -96,6 +96,17 @@ export default function LandingPage() {
             <CheckCircle2 className="w-3.5 h-3.5 text-[#5B8DEF]" />
             <span>Multi-Slide PDF & 4K PNG</span>
           </div>
+        </div>
+
+        {/* System Status & Experimental AI Notice */}
+        <div className="w-full max-w-3xl mb-10 rounded-xl border border-amber-300/80 bg-amber-50/80 px-4 py-2.5 text-left flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 shadow-2xs">
+          <span className="shrink-0 inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 font-mono text-[10px] font-bold text-amber-800 uppercase tracking-wider">
+            NOTICE // AI BETA
+          </span>
+          <p className="text-xs text-[#334155] leading-relaxed">
+            <span className="font-semibold text-[#1E293B]">Graphic design &amp; carousel tools are ready for production use</span> (templates, vector canvas editing, Shift+Click &amp; Ctrl+G grouping, and PNG/PDF exports).{' '}
+            <span className="font-medium text-amber-900">AI features are still in an experimental stage and active development.</span>
+          </p>
         </div>
 
         {/* 3. Hero Realistic Design Workspace Composition */}

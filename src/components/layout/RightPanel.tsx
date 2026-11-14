@@ -7,9 +7,15 @@ import { ChevronRight, ChevronLeft, SlidersHorizontal } from 'lucide-react';
 
 interface RightPanelProps {
   selectedElement: DesignElement | null;
+  selectedElements?: DesignElement[];
   onUpdateElement: (updatedElement: DesignElement) => void;
+  onBatchUpdateElements?: (updatedElements: DesignElement[]) => void;
   onDeleteElement?: (elementId: string) => void;
+  onDeleteElements?: (elementIds: string[]) => void;
   onDuplicateElement?: (elementId: string) => void;
+  onDuplicateElements?: (elementIds: string[]) => void;
+  onGroupElements?: () => void;
+  onUngroupElements?: () => void;
   canvasBackgroundColor?: string;
   onUpdateCanvasBackgroundColor: (color: string) => void;
   // Resizing & Collapsing
@@ -20,9 +26,15 @@ interface RightPanelProps {
 
 export function RightPanel({
   selectedElement,
+  selectedElements = [],
   onUpdateElement,
+  onBatchUpdateElements,
   onDeleteElement,
+  onDeleteElements,
   onDuplicateElement,
+  onDuplicateElements,
+  onGroupElements,
+  onUngroupElements,
   canvasBackgroundColor,
   onUpdateCanvasBackgroundColor,
   width = 320,
@@ -87,9 +99,15 @@ export function RightPanel({
       <div className="flex-1 min-h-0 overflow-hidden">
         <PropertiesEditor
           selectedElement={selectedElement}
+          selectedElements={selectedElements}
           onUpdateElement={onUpdateElement}
+          onBatchUpdateElements={onBatchUpdateElements}
           onDeleteElement={onDeleteElement}
+          onDeleteElements={onDeleteElements}
           onDuplicateElement={onDuplicateElement}
+          onDuplicateElements={onDuplicateElements}
+          onGroupElements={onGroupElements}
+          onUngroupElements={onUngroupElements}
           canvasBackgroundColor={canvasBackgroundColor}
           onUpdateCanvasBackgroundColor={onUpdateCanvasBackgroundColor}
         />

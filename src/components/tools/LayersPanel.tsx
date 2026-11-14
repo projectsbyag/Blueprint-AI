@@ -1,7 +1,19 @@
 'use client';
 
 import type { DesignLayout, DesignElement } from '@/types/blueprint';
-import { Type, Square, Image as ImageIcon, Layers, Trash2, ArrowUp, ArrowDown, Folder } from 'lucide-react';
+import {
+  Type,
+  Square,
+  Image as ImageIcon,
+  Layers,
+  Trash2,
+  ArrowUp,
+  ArrowDown,
+  Folder,
+  FolderPlus,
+  FolderMinus,
+  Check,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface LayersPanelProps {
@@ -11,6 +23,8 @@ interface LayersPanelProps {
   onSelectElement: (id: string | null) => void;
   onSelectElements?: (ids: string[]) => void;
   onToggleSelectElement?: (id: string) => void;
+  onGroupElements?: () => void;
+  onUngroupElements?: () => void;
   onUpdateElement: (element: DesignElement) => void;
   onDeleteElement: (id: string) => void;
 }
@@ -22,6 +36,8 @@ export function LayersPanel({
   onSelectElement,
   onSelectElements,
   onToggleSelectElement,
+  onGroupElements,
+  onUngroupElements,
   onUpdateElement,
   onDeleteElement,
 }: LayersPanelProps) {
@@ -31,7 +47,7 @@ export function LayersPanel({
         <Layers className="w-12 h-12 mb-3 text-muted-foreground/40" />
         <p className="text-sm font-semibold text-foreground">No Layers Yet</p>
         <p className="text-xs text-muted-foreground mt-1 max-w-[200px]">
-          Add elements or load an AI design to inspect and rearrange layers.
+          Add elements or load a template to inspect, group, and rearrange layers.
         </p>
       </div>
     );
@@ -44,6 +60,10 @@ export function LayersPanel({
       : selectedElementId
       ? [selectedElementId]
       : [];
+
+  const selectedElements = currentDesign.elements.filter((el) => effectiveSelectedIds.includes(el.id));
+  const hasGroupedSelection = selectedElements.some((el) => Boolean(el.groupId));
+  const canGroupSelection = selectedElements.length >= 2;
 
   // Sort by zIndex descending (top-most layer on top of list)
   const sortedElements = [...currentDesign.elements].sort(
@@ -68,7 +88,7 @@ export function LayersPanel({
     if (el.type === 'image') return el.content || 'Image Layer';
     if (el.type === 'shape') {
       const isCircle = el.style?.borderRadius === '9999px';
-      return isCircle ? 'Circle Accent' : 'Card / Shape';
+      return isCircle ? 'Circle Accent' : el.style?.shapeType || 'Card / Shape';
     }
     return el.type;
   };
@@ -88,7 +108,7 @@ export function LayersPanel({
     if (e.shiftKey) {
       onToggleSelectElement?.(el.id);
     } else if (el.groupId) {
-      const groupMembers = currentDesign.elements.filter((e) => e.groupId === el.groupId).map((e) => e.id);
+      const groupMembers = currentDesign.elements.filter((item) => item.groupId === el.groupId).map((item) => item.id);
       if (onSelectElements) {
         onSelectElements(groupMembers);
       } else {
@@ -103,13 +123,76 @@ export function LayersPanel({
     }
   };
 
+  const handleCheckboxToggle = (e: React.MouseEvent, el: DesignElement) => {
+    e.stopPropagation();
+    if (onToggleSelectElement) {
+      onToggleSelectElement(el.id);
+    } else if (onSelectElements) {
+      const exists = effectiveSelectedIds.includes(el.id);
+      onSelectElements(
+        exists ? effectiveSelectedIds.filter((id) => id !== el.id) : [...effectiveSelectedIds, el.id]
+      );
+    }
+  };
+
   return (
     <div className="p-4 space-y-3 h-full flex flex-col">
-      <div className="flex items-center justify-between pb-1 border-b">
+      <div className="flex items-center justify-between pb-2 border-b">
         <div>
           <h2 className="text-sm font-bold font-headline">Canvas Layers</h2>
-          <p className="text-[11px] text-muted-foreground">{currentDesign.elements.length} components total</p>
+          <p className="text-[11px] text-muted-foreground">
+            {effectiveSelectedIds.length > 1
+              ? `${effectiveSelectedIds.length} layers selected`
+              : `${currentDesign.elements.length} components total`}
+          </p>
         </div>
+
+        <div className="flex items-center gap-1">
+          {effectiveSelectedIds.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+              onClick={() => {
+                onSelectElements?.([]);
+                onSelectElement(null);
+              }}
+            >
+              Clear
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Group / Ungroup Action Bar */}
+      <div className="space-y-1.5 p-1.5 rounded-lg bg-muted/40 border">
+        <div className="flex items-center gap-1.5">
+          <Button
+            variant={canGroupSelection ? 'default' : 'outline'}
+            size="sm"
+            disabled={!canGroupSelection || !onGroupElements}
+            onClick={onGroupElements}
+            className="flex-1 h-7 text-[11px] font-semibold gap-1"
+            title="Select 2+ layers using Shift+Click, marquee, or checkboxes, then press Ctrl+G to group"
+          >
+            <FolderPlus className="h-3.5 w-3.5" />
+            <span>Group {canGroupSelection ? `(${selectedElements.length})` : ''}</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!hasGroupedSelection || !onUngroupElements}
+            onClick={onUngroupElements}
+            className="h-7 px-2.5 text-[11px] font-semibold gap-1 text-amber-600 border-amber-300/80 hover:bg-amber-50 disabled:opacity-40"
+            title="Ungroup selected elements (Ctrl+Shift+G)"
+          >
+            <FolderMinus className="h-3.5 w-3.5" />
+            <span>Ungroup</span>
+          </Button>
+        </div>
+        <p className="text-[10px] text-muted-foreground px-0.5 leading-tight">
+          Shift + Click elements to multi-select, then press <kbd className="px-1 py-0.2 rounded bg-background border text-[9px] font-mono">Ctrl+G</kbd> to group.
+        </p>
       </div>
 
       <div className="space-y-1.5 overflow-y-auto flex-1 min-h-0 pr-1">
@@ -126,6 +209,20 @@ export function LayersPanel({
               }`}
             >
               <div className="flex items-center gap-2 min-w-0 flex-1 mr-2">
+                {/* Multi-select Checkbox */}
+                <button
+                  type="button"
+                  onClick={(e) => handleCheckboxToggle(e, el)}
+                  className={`w-4 h-4 rounded-xs border flex items-center justify-center shrink-0 transition-colors ${
+                    isSelected
+                      ? 'bg-primary border-primary text-primary-foreground'
+                      : 'bg-background border-border hover:border-primary'
+                  }`}
+                  title="Select / deselect for grouping"
+                >
+                  {isSelected && <Check className="w-3 h-3" />}
+                </button>
+
                 <div className="p-1 rounded bg-background border shrink-0">
                   {getElementIcon(el.type)}
                 </div>
@@ -133,9 +230,12 @@ export function LayersPanel({
                   <div className="flex items-center gap-1.5">
                     <p className="truncate text-xs text-foreground font-medium">{getElementLabel(el)}</p>
                     {el.groupId && (
-                      <span className="shrink-0 flex items-center gap-0.5 px-1 py-0.2 rounded text-[9px] bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 font-bold border border-blue-200 dark:border-blue-800">
+                      <span
+                        title={`Group ID: ${el.groupId}`}
+                        className="shrink-0 flex items-center gap-0.5 px-1 py-0.2 rounded text-[9px] bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 font-bold border border-blue-200 dark:border-blue-800"
+                      >
                         <Folder className="h-2.5 w-2.5" />
-                        GROUP
+                        GRP
                       </span>
                     )}
                   </div>

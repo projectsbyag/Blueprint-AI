@@ -7,6 +7,7 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import type { DesignLayout as ClientDesignLayout, DesignElement } from '@/types/blueprint';
 import { addIdsToLayout } from '@/components/canvas/Canvas';
+import { ScaledCanvasPreview } from '@/components/canvas/ScaledCanvasPreview';
 import { useToast } from '@/hooks/use-toast';
 
 interface TemplateLibraryProps {
@@ -1631,33 +1632,47 @@ export function TemplateLibrary({ onLayoutSelect }: TemplateLibraryProps) {
           const slideCount = template.pages?.length || 1;
           const isCarousel = slideCount > 1;
 
+          const previewElements =
+            template.pages && template.pages.length > 0
+              ? template.pages[0].elements
+              : template.elements;
+          const previewBg =
+            template.pages && template.pages.length > 0
+              ? template.pages[0].canvasBackgroundColor || template.canvasBackgroundColor
+              : template.canvasBackgroundColor;
+
           return (
             <Card
               key={index}
               className="overflow-hidden border border-border/70 hover:border-primary transition-all shadow-sm group hover:shadow-md"
             >
-              {/* Color Banner */}
-              <div
-                className="h-12 w-full flex items-center justify-between px-3 text-white relative overflow-hidden"
-                style={{ backgroundColor: template.canvasBackgroundColor || '#1E293B' }}
-              >
-                <div className="absolute inset-0 bg-black/20" />
-                <span className="relative z-10 text-[11px] font-bold uppercase tracking-wider">
+              {/* Category & Slide Count Bar */}
+              <div className="px-3 py-1.5 bg-muted/50 border-b border-border/60 flex items-center justify-between text-[10px]">
+                <span className="font-bold uppercase tracking-wider text-muted-foreground">
                   {template.category}
                 </span>
+                {isCarousel && (
+                  <span className="bg-primary/10 text-primary font-bold px-1.5 py-0.5 rounded flex items-center gap-1">
+                    <Layers className="h-2.5 w-2.5" />
+                    {slideCount} Slides
+                  </span>
+                )}
+              </div>
 
-                <div className="relative z-10 flex items-center gap-1.5">
-                  {isCarousel && (
-                    <span className="bg-white/20 backdrop-blur-sm text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1">
-                      <Layers className="h-2.5 w-2.5" />
-                      {slideCount} Slides
-                    </span>
-                  )}
-                  <Sparkles className="h-3.5 w-3.5 text-white/80" />
+              {/* Real 1:1 Scaled Canvas Preview */}
+              <div
+                onClick={() => handleSelectTemplate(template)}
+                className="p-2.5 bg-muted/20 cursor-pointer flex items-center justify-center"
+              >
+                <div className="w-full max-w-[210px] aspect-square rounded-lg overflow-hidden border border-border shadow-xs group-hover:scale-[1.02] transition-transform">
+                  <ScaledCanvasPreview
+                    elements={previewElements}
+                    canvasBackgroundColor={previewBg || '#FFFFFF'}
+                  />
                 </div>
               </div>
 
-              <CardContent className="p-3 text-xs">
+              <CardContent className="p-3 pt-2 text-xs">
                 <h3 className="font-semibold text-foreground leading-snug break-words">{template.description}</h3>
                 <p className="text-[11px] text-muted-foreground mt-0.5 leading-normal">
                   {isCarousel

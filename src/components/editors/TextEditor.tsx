@@ -248,8 +248,11 @@ export function TextEditor({ element, onUpdateElement }: TextEditorProps) {
             className="w-full text-xs h-7 gap-1 font-semibold border-amber-500/40 bg-amber-500/5 hover:bg-amber-500/10 text-amber-700 dark:text-amber-400"
           >
             <Sparkles className="h-3 w-3 text-amber-500" />
-            {isGeneratingCopy ? 'Generating ideas...' : 'AI Polish & Catchy Rewrite'}
+            {isGeneratingCopy ? 'Generating ideas...' : 'AI Polish & Catchy Rewrite (Experimental)'}
           </Button>
+          <p className="mt-1.5 text-[10px] leading-snug text-muted-foreground bg-amber-500/5 border border-amber-500/20 rounded px-2 py-1">
+            Note: AI features are currently experimental and in development. All graphic design, layout, and export tools work normally.
+          </p>
 
           {aiCopySuggestions.length > 0 && (
             <div className="mt-2 p-2 bg-muted/60 rounded-lg border text-xs space-y-1">

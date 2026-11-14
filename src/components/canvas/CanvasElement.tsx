@@ -11,7 +11,8 @@ interface CanvasElementProps {
   scale: number;
   isSelected: boolean;
   isGroupMember?: boolean;
-  onClick: (event: React.MouseEvent) => void;
+  isPreview?: boolean;
+  onClick?: (event: React.MouseEvent) => void;
   onMouseDown?: (event: React.MouseEvent) => void;
   onResizeStart?: (event: React.MouseEvent, handle: ResizeHandle) => void;
 }
@@ -21,6 +22,7 @@ export function CanvasElement({
   scale,
   isSelected,
   isGroupMember,
+  isPreview = false,
   onClick,
   onMouseDown,
   onResizeStart,
@@ -70,7 +72,7 @@ export function CanvasElement({
     width: `${element.size.width * scale}px`,
     height: `${element.size.height * scale}px`,
     boxSizing: 'border-box',
-    cursor: isLocked ? 'not-allowed' : isSelected ? 'move' : 'pointer',
+    cursor: isPreview ? 'default' : isLocked ? 'not-allowed' : isSelected ? 'move' : 'pointer',
     zIndex: element.style?.zIndex ?? 1,
     ...restElementStyle,
   };
@@ -81,7 +83,8 @@ export function CanvasElement({
 
   // Strictly use separate non-shorthand border properties on the DOM style
   if (borderWidthVal && borderWidthVal !== '0px' && borderStyleVal && borderStyleVal !== 'none') {
-    style.borderWidth = borderWidthVal;
+    const rawBw = parseFloat(borderWidthVal) || 0;
+    style.borderWidth = isPreview ? `${Math.max(0.75, rawBw * scale)}px` : borderWidthVal;
     style.borderStyle = borderStyleVal;
     style.borderColor = borderColorVal || '#94A3B8';
   } else {
@@ -91,7 +94,12 @@ export function CanvasElement({
   }
   delete (style as any).border;
   if (element.style?.borderRadius) {
-    style.borderRadius = element.style.borderRadius as string;
+    const rawBr = element.style.borderRadius as string;
+    if (isPreview && rawBr.endsWith('px') && parseFloat(rawBr) < 1000) {
+      style.borderRadius = `${parseFloat(rawBr) * scale}px`;
+    } else {
+      style.borderRadius = rawBr;
+    }
   }
   if (element.style?.boxShadow) {
     style.boxShadow = element.style.boxShadow;
@@ -120,7 +128,9 @@ export function CanvasElement({
 
   if (typeof element.style?.opacity === 'number') style.opacity = element.style.opacity;
 
-  const selectionOutline = isSelected
+  const selectionOutline = isPreview
+    ? 'none'
+    : isSelected
     ? isLocked
       ? '2px solid #EF4444'
       : '2px solid #3B82F6'
@@ -160,18 +170,46 @@ export function CanvasElement({
         );
 
       case 'image': {
-        const fallbackSrc = `https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1000&q=80`;
-        const imgSrc =
-          imageError || !element.source || element.source.includes('placehold.co')
-            ? fallbackSrc
-            : element.source;
+        const hasValidSrc =
+          !imageError &&
+          Boolean(element.source) &&
+          !element.source!.includes('placehold.co');
+
+        if (!hasValidSrc) {
+          return (
+            <div
+              className="w-full h-full overflow-hidden pointer-events-none rounded-[inherit] flex flex-col items-center justify-center p-3 text-center bg-gradient-to-br from-slate-800 via-slate-900 to-blue-950 border border-slate-700/60"
+              style={{
+                borderRadius: element.style?.borderRadius || 'inherit',
+              }}
+            >
+              <div className="w-9 h-9 rounded-lg bg-blue-500/20 border border-blue-400/30 flex items-center justify-center mb-1.5">
+                <svg
+                  className="w-4 h-4 text-blue-300"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+                  <circle cx="9" cy="9" r="2" />
+                  <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+                </svg>
+              </div>
+              <span className="text-[11px] font-semibold text-slate-200 line-clamp-2 leading-tight">
+                {element.content || 'Visual Frame'}
+              </span>
+            </div>
+          );
+        }
 
         return (
           <div className="w-full h-full overflow-hidden pointer-events-none rounded-[inherit]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={imgSrc}
+              src={element.source}
               alt={element.content || 'Design Graphic'}
+              referrerPolicy="no-referrer"
               onError={() => setImageError(true)}
               className="w-full h-full object-cover pointer-events-none"
               style={{

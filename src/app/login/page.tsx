@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -9,19 +8,11 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { LogIn, Zap } from 'lucide-react';
-import type { Metadata } from 'next';
-
-// Cannot export metadata from client component
-// export const metadata: Metadata = {
-//   title: 'Login',
-//   description: 'Log in to your Blueprint account.',
-// };
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Invalid email address.' }),
@@ -29,6 +20,16 @@ const formSchema = z.object({
 });
 
 type LoginFormValues = z.infer<typeof formSchema>;
+
+function getPostAuthRedirect(): string {
+  if (typeof window === 'undefined') return '/blueprint';
+  const params = new URLSearchParams(window.location.search);
+  const target = params.get('redirect');
+  if (target && target.startsWith('/')) {
+    return target;
+  }
+  return '/blueprint';
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -49,7 +50,7 @@ export default function LoginPage() {
     try {
       await login(data);
       toast({ title: 'Logged In!', description: 'Welcome back!' });
-      router.push('/blueprint'); // Redirect to editor or dashboard after login
+      router.push(getPostAuthRedirect());
     } catch (error: any) {
       const errorMessage = error?.message || 'Login failed. Please try again.';
       toast({ title: 'Login Failed', description: errorMessage, variant: 'destructive' });
@@ -57,6 +58,11 @@ export default function LoginPage() {
       setIsLoading(false);
     }
   };
+
+  const signupHref =
+    typeof window !== 'undefined' && window.location.search
+      ? `/signup${window.location.search}`
+      : '/signup';
 
   return (
     <div className="flex flex-col min-h-screen items-center justify-center bg-background p-4">
@@ -120,12 +126,12 @@ export default function LoginPage() {
             onClick={async () => {
               setIsLoading(true);
               try {
-                const { loginAsDemo } = useAuth();
-              } catch {}
-              await login({ email: 'designer@blueprint.app', password: 'password123' });
-              toast({ title: 'Welcome to Blueprint!', description: 'Logged in as Demo Designer.' });
-              router.push('/blueprint');
-              setIsLoading(false);
+                await login({ email: 'designer@blueprint.app', password: 'password123' });
+                toast({ title: 'Welcome to Blueprint!', description: 'Logged in as Demo Designer.' });
+                router.push(getPostAuthRedirect());
+              } finally {
+                setIsLoading(false);
+              }
             }}
           >
             <Zap className="mr-2 h-4 w-4 text-primary" />
@@ -133,7 +139,7 @@ export default function LoginPage() {
           </Button>
           <p className="mt-6 text-center text-sm text-muted-foreground">
             Don&apos;t have an account?{' '}
-            <Link href="/signup" className="font-medium text-primary hover:underline">
+            <Link href={signupHref} className="font-medium text-primary hover:underline">
               Sign up
             </Link>
           </p>

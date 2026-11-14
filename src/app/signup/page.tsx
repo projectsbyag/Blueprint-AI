@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -9,30 +8,32 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { UserPlus, Zap } from 'lucide-react';
-import type { Metadata } from 'next';
-
-// Cannot export metadata from client component, move to a layout if server-side metadata is needed.
-// export const metadata: Metadata = { 
-//   title: 'Sign Up',
-//   description: 'Create a new Blueprint account.',
-// };
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Invalid email address.' }),
   password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
   confirmPassword: z.string(),
-}).refine(data => data.password === data.confirmPassword, {
+}).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
-  path: ['confirmPassword'], // path of error
+  path: ['confirmPassword'],
 });
 
 type SignUpFormValues = z.infer<typeof formSchema>;
+
+function getPostAuthRedirect(): string {
+  if (typeof window === 'undefined') return '/blueprint';
+  const params = new URLSearchParams(window.location.search);
+  const target = params.get('redirect');
+  if (target && target.startsWith('/')) {
+    return target;
+  }
+  return '/blueprint';
+}
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -54,7 +55,7 @@ export default function SignUpPage() {
     try {
       await signUp({ email: data.email, password: data.password });
       toast({ title: 'Account Created!', description: 'You have successfully signed up.' });
-      router.push('/blueprint'); // Redirect to editor or dashboard after sign up
+      router.push(getPostAuthRedirect());
     } catch (error: any) {
       const errorMessage = error?.message || 'Failed to create account. Please try again.';
       toast({ title: 'Sign Up Failed', description: errorMessage, variant: 'destructive' });
@@ -62,6 +63,11 @@ export default function SignUpPage() {
       setIsLoading(false);
     }
   };
+
+  const loginHref =
+    typeof window !== 'undefined' && window.location.search
+      ? `/login${window.location.search}`
+      : '/login';
 
   return (
     <div className="flex flex-col min-h-screen items-center justify-center bg-background p-4">
@@ -137,10 +143,13 @@ export default function SignUpPage() {
             disabled={isLoading}
             onClick={async () => {
               setIsLoading(true);
-              await signUp({ email: 'designer@blueprint.app', password: 'password123' });
-              toast({ title: 'Welcome to Blueprint!', description: 'Logged in with instant demo access.' });
-              router.push('/blueprint');
-              setIsLoading(false);
+              try {
+                await signUp({ email: 'designer@blueprint.app', password: 'password123' });
+                toast({ title: 'Welcome to Blueprint!', description: 'Logged in with instant demo access.' });
+                router.push(getPostAuthRedirect());
+              } finally {
+                setIsLoading(false);
+              }
             }}
           >
             <Zap className="mr-2 h-4 w-4 text-primary" />
@@ -148,7 +157,7 @@ export default function SignUpPage() {
           </Button>
           <p className="mt-6 text-center text-sm text-muted-foreground">
             Already have an account?{' '}
-            <Link href="/login" className="font-medium text-primary hover:underline">
+            <Link href={loginHref} className="font-medium text-primary hover:underline">
               Log in
             </Link>
           </p>
