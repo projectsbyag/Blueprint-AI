@@ -1,12 +1,10 @@
-
-```markdown
 # Blueprint AI
 
 Blueprint AI is an AI-powered graphic design and carousel studio for creating professional layouts, social media graphics, presentations, infographics, and marketing materials.
 
 The application combines a visual canvas editor with Google Gemini AI to help users create, customize, and export designs.
 
-https://blueprint-sx1l.onrender.com
+[Live Demo:](https://blueprint-sx1l.onrender.com)
 
 ## Features
 
