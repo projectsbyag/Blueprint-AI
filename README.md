@@ -1,4 +1,3 @@
-Copy everything inside this block into `README.md`:
 
 ```markdown
 # Blueprint AI
