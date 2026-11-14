@@ -1,169 +1,319 @@
-# Blueprint — AI Graphics & Carousel Studio
+Copy everything inside this block into `README.md`:
 
-<p align="center">
-  <img src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80" alt="Blueprint AI Studio" width="100%" style="border-radius: 12px; max-height: 400px; object-fit: cover;" />
-</p>
+```markdown
+# Blueprint AI
 
-<p align="center">
-  <strong>A full-featured, AI-powered graphic design and multi-slide carousel studio built with Next.js 15, TypeScript, Tailwind CSS, and Google Gemini.</strong>
-</p>
+Blueprint AI is an AI-powered graphic design and carousel studio for creating professional layouts, social media graphics, presentations, infographics, and marketing materials.
 
-<p align="center">
-  <a href="#core-features">Features</a> •
-  <a href="#tech-stack">Tech Stack</a> •
-  <a href="#getting-started">Getting Started</a> •
-  <a href="#keyboard-shortcuts">Shortcuts</a> •
-  <a href="#export-options">Exporting</a> •
-  <a href="#architecture">Architecture</a>
-</p>
+The application combines a visual canvas editor with Google Gemini AI to help users create, customize, and export designs.
 
----
+## Features
 
-## ✨ Core Features
+### AI-Powered Design Tools
 
-### 📋 16 Curated High-Converting Templates
-- **Rich Presets Across Categories**: 1-click loading for multi-slide carousel decks (Product Launch, Investor Pitch Deck), developer roadmaps & architecture infographics, luxury real estate flyers, keynote tech posters, cyberpunk events, fitness challenges, hiring announcements, pricing tables, and award certificates.
-- **Search & Category Filtering**: Instantly search templates or filter by *Carousels*, *Infographics*, *Marketing & Sales*, *Social & Media*, and *Business & Career*.
-- **Instant Canvas Initialization**: Applies balanced layout composition, typographic hierarchy, responsive coordinates, and palette pairings instantly to the artboard.
+- Generate design layouts with Google Gemini
+- Rewrite and improve headlines and copy
+- Generate creative text suggestions
+- Create structured visual blueprints from user prompts
 
-### ✍️ AI-Powered Copy & Headline Polish
-- **Contextual Copy Rewriter**: Select any text element on canvas to generate punchy, high-converting headline and copy suggestions with 1 click.
-- **Smart Headline Replacer**: Preview alternative suggestions directly in the inspector and click to replace instantly.
+### Graphic Design Editor
 
-### 📐 Canva-Grade Design Tools & Elements
-- **Shapes & Vector Arrows**: Right arrows, left arrows, double-ended connectors, sharp triangles, 5-point stars, starburst ribbons, quote bubbles, glassmorphic frosted cards, and pills.
-- **Canva Style Properties**:
-  - **Border Controls**: Width slider (0–30px), border styles (Solid, Dashed, Dotted, Double, None), and custom color swatches.
-  - **Corner Radius**: Sharp (0px), Soft (8px), Card (20px), Full Pill/Circle (9999px).
-  - **Canva Shadow Presets**: None, Soft, Elevated, Neon Glow, Retro Hard, and Dramatic Deep.
-  - **Transforms & Snaps**: Slider (-180° to 180°), quick snap buttons (0°, 90°, 180°, 270°), Flip Horizontal, and Flip Vertical.
-  - **Lock / Unlock Elements**: Prevent accidental dragging or resizing of background layers.
-  - **Canva Alignment & Layer Stack**: 6-point alignment (Left, Center X, Right, Top, Center Y, Bottom) plus Bring to Front, Forward, Backward, and Send to Back.
-  - **Text Enhancements**: Text transform (UPPERCASE, lowercase, Capitalize), text decoration (Underline, Strikethrough), and text highlight badges.
-  - **Image Filters & Presets**: Aspect ratio presets (1:1, 16:9, 3:4, Circle Avatar) and visual filters (Grayscale, High Contrast, Warm Vintage, Cool Minimal).
-- **Preset Color Swatches**: Categorized palette picker (Neutrals & Monochrome, Vibrant Primaries, Pastels & Earthy) plus custom hex input for background colors, text colors, and shape borders.
-- **Curated Web Typography**: Visual preset selector featuring popular fonts (*Inter*, *Space Grotesk*, *Poppins*, *Playfair Display*, *Montserrat*, *Roboto*, *Oswald*, *JetBrains Mono*) with live preview rendering.
-- **Shapes & Icon Library**: Rectangles, circles, badges, cards, dividers, buttons, and decorative motifs with adjustable border radius, opacity, and rotation.
-- **Image Integration**: Add images via URL with fit modes, aspect ratios, and rounded corners.
+- Drag-and-drop canvas editing
+- Add and customize text, shapes, images, arrows, cards, buttons, and decorative elements
+- Adjust colors, borders, shadows, opacity, rotation, and corner radius
+- Lock and unlock elements
+- Align and reorder layers
+- Flip and rotate design elements
+- Apply image filters and aspect-ratio presets
 
-### 📄 Export & Publishing
-- **Multi-Page PDF Export**: Compile all carousel slides into a clean, presentation-ready PDF document for LinkedIn decks or pitches (powered by `jspdf`).
-- **Single Slide PDF & PNG**: High-resolution print-ready exports.
-- **Batch PNG Export**: Download all carousel slides as individual image assets with 1 click.
-- **JSON Project Portability**: Save and restore editable design schemas.
+### Templates
 
----
+Blueprint AI includes curated templates for:
 
-## 🚀 Tech Stack
+- Product launches
+- Investor pitch decks
+- Developer roadmaps
+- Architecture infographics
+- Real estate flyers
+- Marketing campaigns
+- Social media carousels
+- Business and career content
 
-- **Framework**: [Next.js 15](https://nextjs.org/) (App Router, Server Actions, Server Components)
-- **Language**: [TypeScript 5](https://www.typescriptlang.org/)
-- **Styling**: [Tailwind CSS v3](https://tailwindcss.com/) with `tailwindcss-animate`
-- **UI Components**: [Radix UI](https://www.radix-ui.com/) primitives + [shadcn/ui](https://ui.shadcn.com/) patterns
-- **Icons**: [Lucide React](https://lucide.dev/)
-- **Generative AI**: Official Google Gen AI SDK (`@google/genai`) with Gemini 2.5 Flash
-- **Document Generation**: [jsPDF](https://github.com/parallax/jsPDF) (Client-side vector/canvas compiler)
-- **Form Validation**: [React Hook Form](https://react-hook-form.com/) & [Zod](https://zod.dev/)
+Templates can be searched and filtered by category.
 
----
+### Carousel and Multi-Page Designs
 
-## 🛠️ Getting Started
+- Create multi-slide carousel presentations
+- Manage multiple pages from the carousel tray
+- Maintain consistent layouts across slides
+- Design content for LinkedIn, social media, presentations, and marketing campaigns
 
-### Prerequisites
-- Node.js 18.x or 20.x
-- npm, yarn, or pnpm
-- A Gemini API Key from [Google AI Studio](https://aistudio.google.com/)
+### Export Options
 
-### Installation
+- Export complete carousel projects as PDF
+- Export individual slides as PDF
+- Export slides as PNG images
+- Batch export multiple slides as PNG files
+- Save and restore projects using JSON files
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/your-username/blueprint.git
-   cd blueprint
-   ```
+### Authentication
 
-2. **Install dependencies:**
-   ```bash
-   npm install
-   ```
+- Login and signup pages
+- Local session support
+- Guest demo mode
+- User authentication context
 
-3. **Configure Environment Variables:**
-   Copy the example environment file:
-   ```bash
-   cp .env.example .env.local
-   ```
-   Add your Google Gemini API key:
-   ```env
-   GEMINI_API_KEY=your_gemini_api_key_here
-   ```
+## Tech Stack
 
-4. **Start the development server:**
-   ```bash
-   npm run dev
-   ```
-   Open [http://localhost:3000](http://localhost:3000) in your browser.
+- **Framework:** Next.js 15
+- **Language:** TypeScript
+- **UI:** React
+- **Styling:** Tailwind CSS
+- **Components:** Radix UI and shadcn/ui patterns
+- **Icons:** Lucide React
+- **AI:** Google Gemini and Genkit
+- **PDF Export:** jsPDF
+- **Forms:** React Hook Form
+- **Validation:** Zod
+- **Animations:** Motion
+- **Charts:** Recharts
 
----
+## Requirements
 
-## ⌨️ Keyboard Shortcuts
+Before running the project, make sure you have:
 
-| Shortcut | Action |
-| :--- | :--- |
-| `Ctrl + Z` / `Cmd + Z` | Undo last canvas action |
-| `Ctrl + Y` / `Cmd + Shift + Z` | Redo action |
-| `Ctrl + G` / `Cmd + G` | Group selected elements |
-| `Ctrl + Shift + G` / `Cmd + Shift + G` | Ungroup selected elements |
-| `Ctrl + D` / `Cmd + D` | Duplicate selected element(s) |
-| `Delete` / `Backspace` | Remove selected element(s) |
-| `Arrow Keys` | Nudge element position (1px) |
-| `Shift + Arrow Keys` | Nudge element position (10px) |
-| `Shift + Click` | Add element to multi-selection |
-| `Escape` | Deselect all elements |
+- Node.js 18 or newer
+- npm, yarn, pnpm, or Bun
+- A Google Gemini API key
 
----
+## Getting Started
 
-## 📦 Project Structure
+### 1. Clone the repository
 
-```text
-├── src/
-│   ├── app/
-│   │   ├── blueprint/          # Main Canvas & Carousel Studio route
-│   │   ├── login/              # User Authentication (Session / Demo Mode)
-│   │   ├── signup/             # New Account Registration
-│   │   ├── layout.tsx          # Root Layout & Typography Font Preloads
-│   │   └── page.tsx            # Marketing Landing & Feature Showcase
-│   ├── components/
-│   │   ├── canvas/             # Canvas, CanvasElement, CarouselTray
-│   │   ├── editors/            # Properties, Shape, Text, Image Editors
-│   │   ├── layout/             # LeftPanel, CenterPanel, RightPanel
-│   │   ├── shared/             # AppHeader with Export Engine
-│   │   ├── tools/              # AI Design Tool, Templates, Element Library, Layers
-│   │   └── ui/                 # Reusable Radix & Preset Pickers
-│   ├── context/
-│   │   └── AuthContext.tsx     # Local Session & Guest Demo Auth Provider
-│   ├── lib/
-│   │   ├── actions.ts          # Server Action: Server-side Gemini AI layout synthesis
-│   │   └── utils.ts            # Class merging and formatting utilities
-│   └── types/
-│       ├── auth.ts             # Auth User & Credential interfaces
-│       └── blueprint.ts        # DesignLayout, DesignElement, DesignPage schemas
-├── package.json
-└── tailwind.config.ts
+```bash
+git clone https://github.com/projectsbyag/Blueprint-AI.git
+cd Blueprint-AI
 ```
 
----
+### 2. Install dependencies
 
-## 🤝 Contributing
+Using npm:
 
-Contributions, issues, and feature requests are welcome!
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+```bash
+npm install
+```
 
----
+Or using Bun:
 
-## 📄 License
+```bash
+bun install
+```
 
-Distributed under the MIT License. See `LICENSE` for more information.
+### 3. Configure environment variables
+
+Create a `.env.local` file in the project root:
+
+```bash
+cp .env.example .env.local
+```
+
+Add your Gemini API key:
+
+```env
+GEMINI_API_KEY=your_gemini_api_key_here
+```
+
+You can create a Gemini API key through Google AI Studio.
+
+### 4. Start the development server
+
+Using npm:
+
+```bash
+npm run dev
+```
+
+Or using Bun:
+
+```bash
+bun run dev
+```
+
+Open the application in your browser:
+
+```text
+http://localhost:3000
+```
+
+## Available Scripts
+
+| Command | Description |
+| --- | --- |
+| `npm run dev` | Starts the Next.js development server |
+| `npm run build` | Builds the application for production |
+| `npm start` | Starts the production server |
+| `npm run lint` | Runs TypeScript checks |
+| `npm run typecheck` | Runs TypeScript type checking |
+| `npm run genkit:dev` | Starts the Genkit development server |
+| `npm run genkit:watch` | Starts Genkit in watch mode |
+
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+| --- | --- |
+| `Ctrl + Z` / `Cmd + Z` | Undo the last canvas action |
+| `Ctrl + Y` / `Cmd + Shift + Z` | Redo an action |
+| `Ctrl + G` / `Cmd + G` | Group selected elements |
+| `Ctrl + Shift + G` / `Cmd + Shift + G` | Ungroup selected elements |
+| `Ctrl + D` / `Cmd + D` | Duplicate selected elements |
+| `Delete` / `Backspace` | Remove selected elements |
+| `Arrow Keys` | Move an element by 1 pixel |
+| `Shift + Arrow Keys` | Move an element by 10 pixels |
+| `Shift + Click` | Add an element to a multi-selection |
+| `Escape` | Deselect all elements |
+
+## Project Structure
+
+```text
+.
+├── docs/
+├── public/
+├── src/
+│   ├── ai/
+│   │   └── dev.ts
+│   ├── app/
+│   │   ├── blueprint/          # Main design studio
+│   │   ├── login/              # Login page
+│   │   ├── signup/             # Signup page
+│   │   ├── layout.tsx          # Root application layout
+│   │   └── page.tsx            # Landing page
+│   ├── components/
+│   │   ├── canvas/             # Canvas and carousel components
+│   │   ├── editors/            # Text, shape, image, and property editors
+│   │   ├── layout/             # Application layout panels
+│   │   ├── shared/             # Shared application components
+│   │   ├── tools/              # AI tools, templates, layers, and elements
+│   │   └── ui/                 # Reusable UI components
+│   ├── context/
+│   │   └── AuthContext.tsx     # Authentication and guest session context
+│   ├── lib/
+│   │   ├── actions.ts          # Server-side AI actions
+│   │   └── utils.ts            # Utility functions
+│   └── types/
+│       ├── auth.ts             # Authentication types
+│       └── blueprint.ts        # Blueprint and design types
+├── .env.example
+├── components.json
+├── next.config.ts
+├── package.json
+├── tailwind.config.ts
+└── tsconfig.json
+```
+
+## How It Works
+
+1. Open Blueprint AI in your browser.
+2. Choose a template or start with a blank canvas.
+3. Add text, images, shapes, and other design elements.
+4. Use the AI tools to generate or improve content.
+5. Customize the layout using the editor controls.
+6. Add additional carousel slides when needed.
+7. Export the finished design as PDF or PNG.
+
+## AI Features
+
+Blueprint AI uses Google Gemini to assist with design and content creation.
+
+AI features may include:
+
+- Layout generation
+- Headline suggestions
+- Copy rewriting
+- Content improvement
+- Design recommendations
+- Visual blueprint generation
+
+Keep your Gemini API key private and never commit it to the repository.
+
+## Deployment
+
+Blueprint AI can be deployed to platforms that support Next.js, including:
+
+- Vercel
+- Netlify
+- Render
+- Railway
+- AWS
+
+Before deploying, configure the following environment variable in your hosting provider:
+
+```env
+GEMINI_API_KEY=your_gemini_api_key_here
+```
+
+To create a production build locally:
+
+```bash
+npm run build
+npm start
+```
+
+## Contributing
+
+Contributions, suggestions, bug reports, and feature requests are welcome.
+
+1. Fork the repository.
+2. Create a feature branch:
+
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+
+3. Make your changes.
+4. Run the type checks:
+
+   ```bash
+   npm run typecheck
+   ```
+
+5. Build the project:
+
+   ```bash
+   npm run build
+   ```
+
+6. Commit your changes:
+
+   ```bash
+   git commit -m "Add your feature"
+   ```
+
+7. Push your branch:
+
+   ```bash
+   git push origin feature/your-feature-name
+   ```
+
+8. Open a pull request.
+
+## Security
+
+Do not commit private credentials or API keys to the repository.
+
+Use environment variables for sensitive values such as:
+
+- Gemini API keys
+- Authentication secrets
+- Database credentials
+- Third-party service tokens
+
+If an API key is accidentally exposed, revoke it and generate a new one immediately.
+
+## License
+
+This project is distributed under the MIT License. See the [LICENSE](LICENSE) file for more information.
+
+## Author
+
+Created by [projectsbyag](https://github.com/projectsbyag).
+```
